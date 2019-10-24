@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "buttons.h"
 
-#define DEBOUNCE 10
+#define DEBOUNCE 10 //ms
 
 //Handy macros
 #define CHECK_TIMER(b, t) if (toggledButtons.##b) buttonsTimers[t] = 0;

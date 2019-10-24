@@ -277,10 +277,10 @@ void portsInit(void) {
     ANSELB = 0x00;
     ANSELC = 0x00;
     WPUA = 0xF0;
-    WPUB = 0x23; //0x27;
+    WPUB = 0x27;
     WPUC = 0xFF;
     ODCONA = 0x00;
-    ODCONB = 0x04;//4;
+    ODCONB = 0x04;
     ODCONC = 0x00;
 }
 
