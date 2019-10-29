@@ -127,7 +127,6 @@ void SIInit(void) {
     SMT1WIN = 0x00;
     SMT1SIG = 0x00; //PPS //0x18; //CLC3OUT
 
-
     PIR1bits.SMT1PWAIF = 0;
     IPR1bits.SMT1PWAIP = 1; //High priority
     PIE1bits.SMT1PWAIE = 1;

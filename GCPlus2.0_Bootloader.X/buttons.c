@@ -20,13 +20,12 @@ void buttonsInit(void) {
     //This bit must always be 1 for proper working
     outButtons.er = 1;
 
-    //Use timer 4 as a 1 ms timer for debouncing
-    T4CLK = 0x01; //FOSC/4 (16MHz)
-    T4RST = 0x00;
-    T4TMR = 0x00;
-    T4PR = 125;
-    T4CON = 0xF0; //T2ON = 0. Prescaler = 1:128. Postscaler = 1:1
-    PIR7bits.TMR4IF = 0;
+    //Use timer 0 as a 1 ms timer for debouncing
+    T0CON0 = 0x00;
+    T0CON1 = 0x47; //FOSC/4 (16MHz). Prescaler = 1:128
+    TMR0H = 124; //Rollover at 124 ticks
+    TMR0IF = 0;
+    T0CON0 = 0x80; //T0ON = 1. 8bit. 1:1 postscaler
 }
 
 void buttonsUpdate(void) {
@@ -62,8 +61,8 @@ void buttonsUpdate(void) {
     CHECK_TIMER(LA, 12)
     CHECK_TIMER(RA, 13)
 
-    if (!PIR7bits.TMR4IF) return;
-    PIR7bits.TMR4IF = 0; //Reset the timer interrupt flag
+    if (!TMR0IF) return;
+    TMR0IF = 0; //Reset the timer interrupt flag
 
     //Increment the timers
     for (i = 0; i < 14; i++) {

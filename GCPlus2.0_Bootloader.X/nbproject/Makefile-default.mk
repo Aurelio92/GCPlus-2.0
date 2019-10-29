@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=main.c config.c nvm.c adc.c buttons.c si.c
+SOURCEFILES_QUOTED_IF_SPACED=main.c config.c nvm.c adc.c buttons.c si.c rumble.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main.p1 ${OBJECTDIR}/config.p1 ${OBJECTDIR}/nvm.p1 ${OBJECTDIR}/adc.p1 ${OBJECTDIR}/buttons.p1 ${OBJECTDIR}/si.p1
-POSSIBLE_DEPFILES=${OBJECTDIR}/main.p1.d ${OBJECTDIR}/config.p1.d ${OBJECTDIR}/nvm.p1.d ${OBJECTDIR}/adc.p1.d ${OBJECTDIR}/buttons.p1.d ${OBJECTDIR}/si.p1.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main.p1 ${OBJECTDIR}/config.p1 ${OBJECTDIR}/nvm.p1 ${OBJECTDIR}/adc.p1 ${OBJECTDIR}/buttons.p1 ${OBJECTDIR}/si.p1 ${OBJECTDIR}/rumble.p1
+POSSIBLE_DEPFILES=${OBJECTDIR}/main.p1.d ${OBJECTDIR}/config.p1.d ${OBJECTDIR}/nvm.p1.d ${OBJECTDIR}/adc.p1.d ${OBJECTDIR}/buttons.p1.d ${OBJECTDIR}/si.p1.d ${OBJECTDIR}/rumble.p1.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/main.p1 ${OBJECTDIR}/config.p1 ${OBJECTDIR}/nvm.p1 ${OBJECTDIR}/adc.p1 ${OBJECTDIR}/buttons.p1 ${OBJECTDIR}/si.p1
+OBJECTFILES=${OBJECTDIR}/main.p1 ${OBJECTDIR}/config.p1 ${OBJECTDIR}/nvm.p1 ${OBJECTDIR}/adc.p1 ${OBJECTDIR}/buttons.p1 ${OBJECTDIR}/si.p1 ${OBJECTDIR}/rumble.p1
 
 # Source Files
-SOURCEFILES=main.c config.c nvm.c adc.c buttons.c si.c
+SOURCEFILES=main.c config.c nvm.c adc.c buttons.c si.c rumble.c
 
 
 CFLAGS=
@@ -141,6 +141,14 @@ ${OBJECTDIR}/si.p1: si.c  nbproject/Makefile-${CND_CONF}.mk
 	@-${MV} ${OBJECTDIR}/si.d ${OBJECTDIR}/si.p1.d 
 	@${FIXDEPS} ${OBJECTDIR}/si.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
 	
+${OBJECTDIR}/rumble.p1: rumble.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/rumble.p1.d 
+	@${RM} ${OBJECTDIR}/rumble.p1 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -mcpu=$(MP_PROCESSOR_OPTION) -c  -D__DEBUG=1  -fno-short-double -fno-short-float -memi=wordwrite -O0 -fasmfile -maddrqual=ignore -xassembler-with-cpp -mwarn=-3 -Wa,-a -DXPRJ_default=$(CND_CONF)  -msummary=-psect,-class,+mem,-hex,-file  -ginhx032 -Wl,--data-init -mno-keep-startup -mno-download -mdefault-config-bits -mc90lib $(COMPARISON_BUILD)  -std=c90 -gdwarf-3 -mstack=compiled:auto:auto:auto     -o ${OBJECTDIR}/rumble.p1 rumble.c 
+	@-${MV} ${OBJECTDIR}/rumble.d ${OBJECTDIR}/rumble.p1.d 
+	@${FIXDEPS} ${OBJECTDIR}/rumble.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
+	
 else
 ${OBJECTDIR}/main.p1: main.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
@@ -189,6 +197,14 @@ ${OBJECTDIR}/si.p1: si.c  nbproject/Makefile-${CND_CONF}.mk
 	${MP_CC} $(MP_EXTRA_CC_PRE) -mcpu=$(MP_PROCESSOR_OPTION) -c  -fno-short-double -fno-short-float -memi=wordwrite -O0 -fasmfile -maddrqual=ignore -xassembler-with-cpp -mwarn=-3 -Wa,-a -DXPRJ_default=$(CND_CONF)  -msummary=-psect,-class,+mem,-hex,-file  -ginhx032 -Wl,--data-init -mno-keep-startup -mno-download -mdefault-config-bits -mc90lib $(COMPARISON_BUILD)  -std=c90 -gdwarf-3 -mstack=compiled:auto:auto:auto     -o ${OBJECTDIR}/si.p1 si.c 
 	@-${MV} ${OBJECTDIR}/si.d ${OBJECTDIR}/si.p1.d 
 	@${FIXDEPS} ${OBJECTDIR}/si.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
+	
+${OBJECTDIR}/rumble.p1: rumble.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/rumble.p1.d 
+	@${RM} ${OBJECTDIR}/rumble.p1 
+	${MP_CC} $(MP_EXTRA_CC_PRE) -mcpu=$(MP_PROCESSOR_OPTION) -c  -fno-short-double -fno-short-float -memi=wordwrite -O0 -fasmfile -maddrqual=ignore -xassembler-with-cpp -mwarn=-3 -Wa,-a -DXPRJ_default=$(CND_CONF)  -msummary=-psect,-class,+mem,-hex,-file  -ginhx032 -Wl,--data-init -mno-keep-startup -mno-download -mdefault-config-bits -mc90lib $(COMPARISON_BUILD)  -std=c90 -gdwarf-3 -mstack=compiled:auto:auto:auto     -o ${OBJECTDIR}/rumble.p1 rumble.c 
+	@-${MV} ${OBJECTDIR}/rumble.d ${OBJECTDIR}/rumble.p1.d 
+	@${FIXDEPS} ${OBJECTDIR}/rumble.p1.d $(SILENT) -rsi ${MP_CC_DIR}../  
 	
 endif
 

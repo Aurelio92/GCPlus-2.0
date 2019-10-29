@@ -56,7 +56,7 @@ void configSetDefault(void) {
     config.deadzoneMode = 0;
 
     //Rumble
-    config.rumbleIntensity = 0x7F;
+    config.rumbleIntensity = 0xFF;
 
     //Triggers mode
     config.triggersMode = 0; //Digital

@@ -1,5 +1,5 @@
-#ifndef NVM_H
-#define NVM_H
+#ifndef _NVM_H
+#define _NVM_H
 
 void NVMUnlock(void);
 void PGMEraseRow(uint16_t addr);

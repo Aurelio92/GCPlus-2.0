@@ -30,6 +30,12 @@
 #define GCP_ERR_WRONGMODE   0xFD
 
 
+//Rumble
+#define PAD_MOTOR_STOP          0
+#define PAD_MOTOR_RUMBLE        1
+#define PAD_MOTOR_STOP_HARD     2
+
+
 void SIInit(void);
 void SIConfigureCLC(void);
 void SISendMessage(uint8_t* msg, uint8_t len);

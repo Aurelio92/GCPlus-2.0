@@ -65,7 +65,7 @@ void main(void) {
     uint8_t flashBuffer[64];
     uint8_t flashBufferIdx;
 
-    //Clock should already be set at 64MHz in the configuration register. This is useless
+    /*//Clock should already be set at 64MHz in the configuration register. This is useless
     // NOSC HFINTOSC; NDIV 1;
     OSCCON1 = 0x60;
     // CSWHOLD may proceed; SOSCPWR Low power;
@@ -75,7 +75,7 @@ void main(void) {
     // HFFRQ 64_MHz;
     OSCFRQ = 0x08;
     // TUN 0;
-    OSCTUNE = 0x00;
+    OSCTUNE = 0x00;*/
 
     portsInit();
 
@@ -98,6 +98,7 @@ void main(void) {
     ADCInit(config.SXChan, config.SYChan, config.CXChan, config.CYChan);
     buttonsInit();
     SIInit();
+    rumbleInit();
 
     //Restore configuration if X+Y+A are all pressed
     if (!inBut.X && !inBut.Y && !inBut.A) {
@@ -132,6 +133,21 @@ void main(void) {
                 break;
 
                 case SI_CMD_POLL:
+                    //Handle rumble
+                    switch (cmd[2]) {
+                        case 1:
+                            rumbleSpin(config.rumbleIntensity);
+                        break;
+
+                        case 2:
+                            rumbleBrake();
+                        break;
+
+                        default:
+                            rumbleStop();
+                        break;
+                    }
+                    //Answer
                     SISendMessage(buttonsGetMessage(cmd[1], config.triggersMode), 8);
                 break;
 
@@ -342,14 +358,19 @@ void portsInit(void) {
     //Transmission
     RB2PPS = 0x04; //CLC4 to RB2
 
+    //Rumble PWM
+    RB4PPS = 0x09; //CCP1
+
     PPSLOCK = 0x55;
     PPSLOCK = 0xAA;
     PPSLOCKbits.PPSLOCKED = 0x01; //Lock PPS
     GIE = state; //Restore interrupts
 
+    LATB = 0xFF;
+
     //Bootloader won't emulate analog triggers
     TRISA = 0xFF;
-    TRISB = 0xFF;
+    TRISB = 0xE7;
     TRISC = 0xFF;
     ANSELA = 0x0F;
     ANSELB = 0x00;
