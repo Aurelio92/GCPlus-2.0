@@ -85,9 +85,13 @@ void main(void) {
     inBut.PORTB = PORTB;
     inBut.PORTC = PORTC;
 
-    //Boot to main payload unless X+Y+Z are all pressed
-    if (inBut.X || inBut.Y || inBut.Z) {
-        bootPayload();
+    //Check if a payload is actually present
+    PGMReadBlock(PAYLOAD_ADDR, flashBuffer);
+    if ((flashBuffer[0] == 0x47) && (flashBuffer[1] == 0x43) && (flashBuffer[2] == 0x2B) && (flashBuffer[3] == 0x32)) {
+        //Boot to main payload unless X+Y+Z are all pressed
+        if (inBut.X || inBut.Y || inBut.Z) {
+            bootPayload();
+        }
     }
 
     configInit();
