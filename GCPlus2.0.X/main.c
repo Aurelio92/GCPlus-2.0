@@ -218,7 +218,7 @@ void main(void) {
                     SISendMessage(msgGen, 2);
                 break;
 
-                default:
+                default: //Unknown command
                     SIClear();
                 break;
             }

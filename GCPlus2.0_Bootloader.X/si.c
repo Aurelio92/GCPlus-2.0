@@ -3,24 +3,16 @@
 #include <stdbool.h>
 #include "si.h"
 
-static uint8_t SIInputMessage[16];
+static uint8_t SIInputMessage[32];
 static uint8_t SIBitCounter = 0;
 static uint8_t SIByteCounter = 0;
 static uint8_t SICMDReceived = 0;
 static uint8_t SITempByte = 0x00;
 
-void interrupt hi_int(void)             // High priority interrupt
+void interrupt hi_int(void) //High priority interrupt
 {
     if (SMT1PWAIE && SMT1PWAIF)
     {
-        //Clear input buffer if we didn't handle a command
-        /*if (SICMDReceived && PIR3bits.TMR0IF) {
-            SIBitCounter = 0;
-            SIByteCounter = 0;
-            SICMDReceived = 0;
-            SITempByte = 0x00;
-        }*/
-
         SMT1PWAIF = 0;
 
         SITempByte <<= 1;
@@ -76,26 +68,8 @@ void interrupt hi_int(void)             // High priority interrupt
             SITempByte = 0x00;
             SIBitCounter = 0;
             ++SIByteCounter;
-        }/* else if (SIBitCounter == 1) { //Check for stop bit
-            if (SITempByte == 1 && SIByteCounter > 0) {
-                SICMDReceived = 1;
-            }
-        }*/
-    }
-
-    /*if (PIR9bits.TMR6IF) {
-        if ((SIBitCounter == 1) && SIByteCounter) {
-            SICMDReceived = 1;
         }
-        PIR9bits.TMR6IF = 0;
-    }*/
-    /*//Received data over SPI
-    if (PIR2bits.SPI1RXIF) {
-        //Read SPI1RXB
-        uint8_t data = SPI1RXB;
-        SIInputMessage[SIByteCounter++] = data;
-        PIR2bits.SPI1RXIF = 0;
-    }*/
+    }
 
     if (PIR9bits.TMR6IF) {
         if (SIByteCounter) {
@@ -115,10 +89,6 @@ void SIInit(void) {
     T6HLT = 0x05; //Falling edge reset. Free running
     PIR9bits.TMR6IF = 0;
     PIE9bits.TMR6IE = 1;
-
-    /*//Wait until data line falls
-    while(!PORTBbits.RB2);
-    while(PORTBbits.RB2);*/
 
     //Use timer 2 to wait 1ms with no toggling on the data line
     //This will ensure that the bus is idle when we start the program
@@ -140,12 +110,6 @@ void SIInit(void) {
     SIConfigureCLC();
 
     T6CON = 0x80; //ON. 1:1 prescaler. 1:1 postscaler
-
-    /*SPI1CLK = 0x00;
-    SPI1BAUD = 0x7F; //250kHz
-    SPI1CON1 = 0x00; //0x40;
-    SPI1CON2 = 0x02; //Transmit only
-    SPI1CON0 = 0x82; //Master mode*/
 
     //Setup SMT for input decoding
     //HIGH AND LOW MEASURE MODE REPEAT ACQUISITION
@@ -176,72 +140,6 @@ void SIInit(void) {
 #define METHOD 1
 
 void SIConfigureCLC(void) {
-    #if METHOD == 0
-    T2CON = 0x00;
-    T2CLKCON = 0x01; //FOSC/4 (16MHz)
-    T2HLT = 0x04; //Resets at rising TMR2_ers
-    T2RST = 0x12; //CLC2_out reset
-    T2PR = 0x1F; //2us
-    T2TMR = 0x00;
-    T2CON = 0x80;
-
-    //50%
-    PWM5DCH = 0x0F;
-    PWM5DCL = 0x00;
-    PWM5CON = 0x80; //Enable PWM
-
-    CLC1POL = 0x00;
-    CLC1SEL0 = 0x2B; //SDO
-    CLC1SEL1 = 0x2C; //SCK
-    CLC1SEL2 = 0x00; //Unused
-    CLC1SEL3 = 0x00; //Unused
-    CLC1GLS0 = 0x08; //SCK
-    CLC1GLS1 = 0x02; //SDO
-    CLC1GLS2 = 0x00; //'0'
-    CLC1GLS3 = 0x00; //'0'
-    CLC1CON = 0x84; //D-FLIP-FLOP
-
-    CLC2POL = 0x00;
-    CLC2SEL0 = 0x2C; //SCK
-    CLC2SEL1 = 0x2D; //SS
-    CLC2SEL2 = 0x00; //Unused
-    CLC2SEL3 = 0x00; //Unused
-    CLC2GLS0 = 0x02; //SCK
-    CLC2GLS1 = 0x00; //'0'
-    CLC2GLS2 = 0x04; //!SS
-    CLC2GLS3 = 0x00; //'0'
-    CLC2CON = 0x83; //SR
-
-    //Outputs (data + !SCK + !EN) * (!PWM5 + data + !EN) * (!PWM5 + !SCK + !EN)
-    CLC3POL = 0x08;
-    CLC3SEL0 = 0x18; //PWM5
-    CLC3SEL1 = 0x24; //CLC1OUT = data
-    CLC3SEL2 = 0x2C; //SCK
-    CLC3SEL3 = 0x25; //CLC2OUT = EN
-    CLC3GLS0 = 0x58; //(data + !SCK + !EN)
-    CLC3GLS1 = 0x49; //(!PWM5 + data + !EN)
-    CLC3GLS2 = 0x51; //(!PWM5 + !SCK + !EN)
-    CLC3GLS3 = 0x00; //'1'
-    CLC3CON = 0x82; //4-AND
-
-    CLC3POL = 0x08;
-    CLC3SEL0 = 0x18; //PWM5
-    CLC3SEL1 = 0x2B; //SDO
-    CLC3SEL2 = 0x2C; //SCK
-    CLC3SEL3 = 0x25; //CLC2OUT = EN
-    CLC3GLS0 = 0x58; //(data + !SCK + !EN)
-    CLC3GLS1 = 0x49; //(!PWM5 + data + !EN)
-    CLC3GLS2 = 0x51; //(!PWM5 + !SCK + !EN)
-    CLC3GLS3 = 0x00; //'1'
-    CLC3CON = 0x82; //4-AND
-
-    SPI1CLK = 0x05; //TMR2
-    SPI1BAUD = 0x00; //250kHz
-    SPI1CON1 = 0x00;
-    SPI1CON2 = 0x02; //Transmit only
-    SPI1CON0 = 0x82; //Master mode
-
-    #elif METHOD == 1
     T2CON = 0x00;
     T2CLKCON = 0x01; //FOSC/4 (16MHz)
     T2HLT = 0x04; //Resets at rising TMR2_ers
@@ -304,93 +202,6 @@ void SIConfigureCLC(void) {
     SPI1CON1 = 0x00;
     SPI1CON2 = 0x02; //Transmit only
     SPI1CON0 = 0x82; //Master mode
-    #else
-
-    T2CON = 0x00;
-    T2CLKCON = 0x01; //FOSC/4 (16MHz)
-    T2HLT = 0x04; //Resets at rising TMR2_ers
-    //T2HLT = 0x11; //Starts at rising TMR2_ers
-    T2RST = 0x11; //CLC1_out start
-    T2PR = 0x3F; //4us
-    T2TMR = 0x00;
-    T2CONbits.T2ON = 1;
-
-    //'0'
-    PWM5DCH = 0x2F;
-    PWM5DCL = 0x00;
-    PWM5CON = 0x90; //Enable PWM. Inverted output
-
-    //'1'
-    PWM6DCH = 0x0F;
-    PWM6DCL = 0x00;
-    PWM6CON = 0x90; //Enable PWM. Inverted output
-
-    //Generate enable
-    CLC1POL = 0x00;
-    CLC1SEL0 = 0x2C; //SCK
-    CLC1SEL1 = 0x2D; //SS
-    CLC1SEL2 = 0x00; //Unused
-    CLC1SEL3 = 0x00; //Unused
-    CLC1GLS0 = 0x02; //SCK
-    CLC1GLS1 = 0x00; //'0'
-    CLC1GLS2 = 0x04; //!SS
-    CLC1GLS3 = 0x00; //'0'
-    CLC1CON = 0x83; //SR
-
-    //D flip-flop for SDO
-    CLC2POL = 0x00;
-    CLC2SEL0 = 0x2C; //SCK
-    CLC2SEL1 = 0x2B; //SDO
-    CLC2SEL2 = 0x00; //Unused
-    CLC2SEL3 = 0x00; //Unused
-    CLC2GLS0 = 0x02; //SCK to clock input
-    CLC2GLS1 = 0x08; //SDO to data input
-    CLC2GLS2 = 0x00; //'0'
-    CLC2GLS3 = 0x00; //'0'
-    CLC2CON = 0x84; //D flip-flop
-
-    /*//AND-OR to switch between the two data patterns
-    CLC3POL = 0x00;
-    CLC3SEL0 = 0x2B; //SDO
-    CLC3SEL1 = 0x18; //PWM5
-    CLC3SEL2 = 0x19; //PWM6
-    CLC3SEL3 = 0x24; //CLC1OUT = EN
-    CLC3GLS0 = 0x41; //!SDO || !EN
-    CLC3GLS1 = 0x48; //PWM5 || !EN
-    CLC3GLS2 = 0x42; //SDO  || !EN
-    CLC3GLS3 = 0x60; //PWM6 || !EN
-    CLC3CON = 0x80; //AND-OR*/
-
-    //AND-OR to switch between the two data patterns
-    CLC3POL = 0x00;
-    CLC3SEL0 = 0x2B; //SDO
-    CLC3SEL1 = 0x18; //PWM5
-    CLC3SEL2 = 0x19; //PWM6
-    CLC3SEL3 = 0x24; //CLC1OUT = EN
-    CLC3GLS0 = 0x41; //!SDO || !EN
-    CLC3GLS1 = 0x48; //PWM5 || !EN
-    CLC3GLS2 = 0x42; //SDO  || !EN
-    CLC3GLS3 = 0x60; //PWM6 || !EN
-    CLC3CON = 0x80; //AND-OR
-
-    //Generate enable
-    CLC1POL = 0x0E;
-    CLC1SEL0 = 0x2C; //SCK
-    CLC1SEL1 = 0x2D; //SS
-    CLC1SEL2 = 0x00; //Unused
-    CLC1SEL3 = 0x00; //Unused
-    CLC1GLS0 = 0x08; //SS
-    CLC1GLS1 = 0x00; //'1'
-    CLC1GLS2 = 0x00; //'1'
-    CLC1GLS3 = 0x00; //'1'
-    CLC1CON = 0x82; //4-AND
-
-    SPI1CLK = 0x00;
-    SPI1BAUD = 0x7F; //250kHz
-    SPI1CON1 = 0x00;
-    SPI1CON2 = 0x02; //Transmit only
-    SPI1CON0 = 0x82; //Master mode
-    #endif
 }
 
 void SISendMessage(uint8_t* msg, uint8_t len) {

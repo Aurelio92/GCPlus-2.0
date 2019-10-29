@@ -35,7 +35,7 @@
 // CONFIG4L
 #pragma config BBSIZE = BBSIZE_2048// Boot Block Size selection bits (Boot Block size is 2048 words)
 #pragma config BBEN = ON        // Boot Block enable bit (Boot block enabled)
-#pragma config SAFEN = OFF      // Storage Area Flash enable bit (SAF disabled)
+#pragma config SAFEN = ON       // Storage Area Flash enable bit (SAF enabled)
 #pragma config WRTAPP = OFF     // Application Block write protection bit (Application Block not write protected)
 
 // CONFIG4H
@@ -48,9 +48,340 @@
 // CONFIG5L
 #pragma config CP = ON          // PFM and Data EEPROM Code Protection bit (PFM and Data EEPROM code protection enabled)
 
-
-#include <xc.h>
+#include "main.h"
 
 void main(void) {
+    uint8_t i;
+    uint8_t cmdLen = 0;
+    char cmd[0x20];
+    char msgAnswer[0x20];
+    uint8_t LUT_SX[0x100];
+    uint8_t LUT_SY[0x100];
+    uint8_t LUT_CX[0x100];
+    uint8_t LUT_CY[0x100];
+    uint8_t gcpLocked = 1;
+
+    //Bootloader buffer stuff
+    uint8_t flashBuffer[64];
+    uint8_t flashBufferIdx;
+
+    //Clock should already be set at 64MHz in the configuration register. This is useless
+    // NOSC HFINTOSC; NDIV 1;
+    OSCCON1 = 0x60;
+    // CSWHOLD may proceed; SOSCPWR Low power;
+    OSCCON3 = 0x00;
+    // MFOEN disabled; LFOEN disabled; ADOEN disabled; SOSCEN disabled; EXTOEN disabled; HFOEN disabled;
+    OSCEN = 0x00;
+    // HFFRQ 64_MHz;
+    OSCFRQ = 0x08;
+    // TUN 0;
+    OSCTUNE = 0x00;
+
+    portsInit();
+
+    //Read buttons for boot combos
+    inButtons_t inBut;
+    inBut.PORTA = PORTA;
+    inBut.PORTB = PORTB;
+    inBut.PORTC = PORTC;
+
+    //Boot to main payload unless X+Y+Z are all pressed
+    if (inBut.X || inBut.Y || inBut.Z) {
+        bootPayload();
+    }
+
+    configInit();
+    ADCInit(config.SXChan, config.SYChan, config.CXChan, config.CYChan);
+    buttonsInit();
+    SIInit();
+
+    //Restore configuration if X+Y+A are all pressed
+    if (!inBut.X && !inBut.Y && !inBut.A) {
+        configSetDefault();
+        configFlashAll();
+    }
+
+    //Build LUTs
+    LUTBuild(LUT_SX, config.SXMin, config.SXMax, ADC_SX, config.SDeadzone, config.SXInvert);
+    LUTBuild(LUT_SY, config.SYMin, config.SYMax, ADC_SY, config.SDeadzone, config.SYInvert);
+    LUTBuild(LUT_CX, config.CXMin, config.CXMax, ADC_CX, config.CDeadzone, config.CXInvert);
+    LUTBuild(LUT_CY, config.CYMin, config.CYMax, ADC_CY, config.CDeadzone, config.CYInvert);
+
+    INTCON0 = 0x80; //Interrupts enabled with no priority
+
+    while (1) {
+        //If X+Y+Start are all pressed, don't reset the wdt
+        if (inBut.X || inBut.Y || inBut.ST) {
+            asm("clrwdt");
+        }
+        buttonsUpdate();
+        cmdLen = SIGetCommand(cmd);
+
+        if (cmdLen > 0) {
+            switch(cmd[0]) {
+                case SI_CMD_ID:
+                case SI_CMD_RESET:
+                    msgAnswer[0] = 0x09;
+                    msgAnswer[1] = 0x00;
+                    msgAnswer[2] = 0x03;
+                    SISendMessage(msgAnswer, 3);
+                break;
+
+                case SI_CMD_POLL:
+                    SISendMessage(buttonsGetMessage(cmd[1], config.triggersMode), 8);
+                break;
+
+                case SI_CMD_ORIGINS:
+                case SI_CMD_CALIB:
+                    msgAnswer[0] = 0x00;
+                    msgAnswer[1] = 0x80;
+                    msgAnswer[2] = 0x80;
+                    msgAnswer[3] = 0x80;
+                    msgAnswer[4] = 0x80;
+                    msgAnswer[5] = 0x80;
+                    msgAnswer[6] = 0x80;
+                    msgAnswer[7] = 0x80;
+                    msgAnswer[8] = 0x00;
+                    msgAnswer[9] = 0x00;
+                    SISendMessage(msgAnswer, 10);
+                break;
+
+                case GCP_CMD_LOCKUNLOCK:
+                    if ((cmd[1] == 0x47) && (cmd[2] == 0x43) && (cmd[3] == 0x2B) && (cmd[4] == 0x32) && cmdLen == 5) {
+                        gcpLocked = 0;
+                    } else {
+                        gcpLocked = 1;
+                    }
+                    msgAnswer[0] = GCP_ERR_NONE;
+                    SISendMessage(msgAnswer, 1);
+                break;
+
+                case GCP_CMD_GETVER:
+                    if (!gcpLocked) {
+                        msgAnswer[0] = 0x01; //Bootloader
+                        msgAnswer[1] = GCP2_VERSION & 0xFF;
+                        msgAnswer[2] = (GCP2_VERSION >> 8) & 0xFF;
+                        msgAnswer[3] = GCP2_HWVERSION & 0xFF;
+                        msgAnswer[4] = (GCP2_HWVERSION >> 8) & 0xFF;
+                        SISendMessage(msgAnswer, 5);
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_WRITEEEPROM:
+                    if (!gcpLocked) {
+                        if (cmdLen > 3) {
+                            uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
+                            for (i = 3; i < cmdLen; i++) {
+                                EEPROMWriteByte(addr++, cmd[i]);
+                            }
+                            msgAnswer[0] = GCP_ERR_NONE;
+                            SISendMessage(msgAnswer, 1);
+                        } else {
+                            msgAnswer[0] = GCP_ERR_WRONGARG;
+                            SISendMessage(msgAnswer, 1);
+                        }
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_READEEPROM:
+                    if (!gcpLocked) {
+                        if (cmdLen == 4) {
+                            uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
+                            uint8_t len = cmd[3];
+                            if (len == 0) {
+                                msgAnswer[0] = GCP_ERR_WRONGARG;
+                                SISendMessage(msgAnswer, 1);
+                            } else {
+                                for (i = 0; i < len; i++) {
+                                    msgAnswer[i] = EEPROMReadByte(addr++);
+                                }
+                                SISendMessage(msgAnswer, len);
+                            }
+                        } else {
+                            msgAnswer[0] = GCP_ERR_WRONGARG;
+                            SISendMessage(msgAnswer, 1);
+                        }
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_RESET:
+                    asm("reset");
+                break;
+
+                case GCP_CMD_BOOTBL:
+                    //We are already in bootloader. Send error
+                    msgAnswer[0] = GCP_ERR_WRONGMODE;
+                    SISendMessage(msgAnswer, 1);
+                break;
+
+                case GCP_CMD_RESETIDX:
+                    if (!gcpLocked) {
+                        flashBufferIdx = 0;
+                        msgAnswer[0] = GCP_ERR_NONE;
+                        SISendMessage(msgAnswer, 1);
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_FILLBUFFER:
+                    if (!gcpLocked) {
+                        for (i = 1; i < cmdLen; i++) {
+                            flashBuffer[flashBufferIdx++] = cmd[i];
+                            flashBufferIdx &= 63;
+                        }
+                        msgAnswer[0] = GCP_ERR_NONE;
+                        SISendMessage(msgAnswer, 1);
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_READBUFFER:
+                    if (!gcpLocked) {
+                        for (i = 0; i < 16; i++) {
+                            msgAnswer[i] = flashBuffer[flashBufferIdx++];
+                            flashBufferIdx &= 63;
+                        }
+                        SISendMessage(msgAnswer, 16);
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_WRITEFLASH:
+                    if (!gcpLocked) {
+                        if (cmdLen == 3) {
+                            uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
+                            if (addr & 63) {
+                                msgAnswer[0] = GCP_ERR_WRONGARG;
+                                SISendMessage(msgAnswer, 1);
+                            } else {
+                                PGMEraseRow(addr);
+                                PGMWriteBlock(addr, flashBuffer);
+                                msgAnswer[0] = GCP_ERR_NONE;
+                                SISendMessage(msgAnswer, 1);
+                            }
+                        } else {
+                            msgAnswer[0] = GCP_ERR_WRONGARG;
+                            SISendMessage(msgAnswer, 1);
+                        }
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_READFLASH:
+                    if (!gcpLocked) {
+                        if (cmdLen == 3) {
+                            uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
+                            PGMReadBlock(addr, flashBuffer);
+                            msgAnswer[0] = GCP_ERR_NONE;
+                            SISendMessage(msgAnswer, 1);
+                        } else {
+                            msgAnswer[0] = GCP_ERR_WRONGARG;
+                            SISendMessage(msgAnswer, 1);
+                        }
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_BOOTPAYLOAD:
+                    if (!gcpLocked) {
+                        msgAnswer[0] = GCP_ERR_NONE;
+                        SISendMessage(msgAnswer, 1);
+                        bootPayload();
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                default: //Unknown command
+                    SIClear();
+                break;
+            }
+        }
+    }
+
     return;
+}
+
+void portsInit(void) {
+    //Stop interrupts
+    bool state = (unsigned char)GIE;
+    GIE = 0;
+    PPSLOCK = 0x55;
+    PPSLOCK = 0xAA;
+    PPSLOCKbits.PPSLOCKED = 0x00; //Unlock PPS
+
+    //Data line wired to RB2
+    //Reception
+    T6INPPS = 0x0A; //RB2 to T6INPPS. Used as reset trigger
+    SMT1SIGPPS = 0x0A; //RB2
+
+    //Transmission
+    RB2PPS = 0x04; //CLC4 to RB2
+
+    PPSLOCK = 0x55;
+    PPSLOCK = 0xAA;
+    PPSLOCKbits.PPSLOCKED = 0x01; //Lock PPS
+    GIE = state; //Restore interrupts
+
+    //Bootloader won't emulate analog triggers
+    TRISA = 0xFF;
+    TRISB = 0xFF;
+    TRISC = 0xFF;
+    ANSELA = 0x0F;
+    ANSELB = 0x00;
+    ANSELC = 0x00;
+    WPUA = 0xF0;
+    WPUB = 0x27;
+    WPUC = 0xFF;
+    ODCONA = 0x00;
+    ODCONB = 0x04;
+    ODCONC = 0x00;
+}
+
+void LUTBuild(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t invert) {
+    int16_t i;
+    int16_t range = ((int16_t)maxVal - (int16_t)minVal) / 2;
+
+    for (i = 0; i < 256; i++) {
+        int16_t radius = i - origin;
+        if (invert) radius = -radius;
+        if (ABS(radius) < (int16_t)dz) {
+            LUT[i] = 0x80;
+        } else {
+            int16_t tempVal = radius * 128 / range;
+            tempVal += 128;
+            if (tempVal < 0) tempVal = 0;
+            if (tempVal > 0xFF) tempVal = 0xFF;
+            LUT[i] = (uint8_t)tempVal & 0xFFU;
+        }
+    }
+}
+
+void bootPayload(void) {
+    STKPTR = 0x00; //Clean up stack
+    uint16_t addr = PAYLOAD_ADDR + 4; //Skips header
+    IVTBASE = addr + 8; //Set interrupt base address
+    PCLATU = 0x00;
+    PCLATH = (addr >> 8) & 0xFF;
+    PCL = addr & 0xFF;
 }
