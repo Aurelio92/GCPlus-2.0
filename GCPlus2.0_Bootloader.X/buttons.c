@@ -108,7 +108,7 @@ uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode) {
     buttonsMessage[3] = ADC_SY;
 
     uint8_t ra, la;
-    if (!triggersMode) {
+    if (triggersMode == TRIG_MODE_DIGITAL) {
         ra = outButtons.RA;
         la = outButtons.LA;
     } else {

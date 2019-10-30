@@ -1,5 +1,11 @@
-#ifndef _CONFIG_H
-#define _CONFIG_H
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
+
+#define DZ_MODE_RADIAL          0
+#define DZ_MODE_SCALEDRADIAL    1
+
+#define TRIG_MODE_DIGITAL   0
+#define TRIG_MODE_ANALOG    1
 
 typedef struct {
     //Header

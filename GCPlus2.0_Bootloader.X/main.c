@@ -107,10 +107,10 @@ void main(void) {
     }
 
     //Build LUTs
-    LUTBuild(LUT_SX, config.SXMin, config.SXMax, ADC_SX, config.SDeadzone, config.SXInvert);
-    LUTBuild(LUT_SY, config.SYMin, config.SYMax, ADC_SY, config.SDeadzone, config.SYInvert);
-    LUTBuild(LUT_CX, config.CXMin, config.CXMax, ADC_CX, config.CDeadzone, config.CXInvert);
-    LUTBuild(LUT_CY, config.CYMin, config.CYMax, ADC_CY, config.CDeadzone, config.CYInvert);
+    LUTBuild(LUT_SX, config.SXMin, config.SXMax, ADC_SX, config.SDeadzone, config.deadzoneMode, config.SXInvert);
+    LUTBuild(LUT_SY, config.SYMin, config.SYMax, ADC_SY, config.SDeadzone, config.deadzoneMode, config.SYInvert);
+    LUTBuild(LUT_CX, config.CXMin, config.CXMax, ADC_CX, config.CDeadzone, config.deadzoneMode, config.CXInvert);
+    LUTBuild(LUT_CY, config.CYMin, config.CYMax, ADC_CY, config.CDeadzone, config.deadzoneMode, config.CYInvert);
 
     INTCON0 = 0x80; //Interrupts enabled with no priority
 
@@ -383,7 +383,7 @@ void portsInit(void) {
     ODCONC = 0x00;
 }
 
-void LUTBuild(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t invert) {
+void LUTBuild(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t dzMode, uint8_t invert) {
     int16_t i;
     int16_t range = ((int16_t)maxVal - (int16_t)minVal) / 2;
 
@@ -393,7 +393,12 @@ void LUTBuild(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint
         if (ABS(radius) < (int16_t)dz) {
             LUT[i] = 0x80;
         } else {
-            int16_t tempVal = radius * 128 / range;
+            int16_t tempVal;
+            if (dzMode == DZ_MODE_RADIAL) {
+                tempVal = radius * 127 / range;
+            } else {
+                tempVal = (radius - dz) * 127 / (range - dz);
+            }
             tempVal += 128;
             if (tempVal < 0) tempVal = 0;
             if (tempVal > 0xFF) tempVal = 0xFF;

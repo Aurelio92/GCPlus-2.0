@@ -1,5 +1,5 @@
-#ifndef _RUMBLE_H
-#define _RUMBLE_H
+#ifndef _RUMBLE_H_
+#define _RUMBLE_H_
 
 void rumbleInit(void);
 void rumbleSpin(uint8_t speed);
