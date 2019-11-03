@@ -12,19 +12,19 @@ void rumbleInit(void) {
     CCPR1L = 0x00;
     CCPR1H = 0x80; //50% => 0V
     CCP1CON = 0x9C; //Enabled. Left-aligned PWM
-
-    //Enable DRV2603
-    LATB4 = 1;
 }
 
 void rumbleSpin(uint8_t speed) {
+    LATB4 = 1; //Enable DRV2603
     CCPR1H = speed;
 }
 
 void rumbleBrake(void) {
+    LATB4 = 1; //Enable DRV2603
     CCPR1H = 0x60;
 }
 
 void rumbleStop(void) {
+    LATB4 = 0; //Disable DRV2603
     CCPR1H = 0x80;
 }
