@@ -62,16 +62,29 @@ typedef union {
     };
 } outButtons_t;
 
-#ifdef  __cplusplus
-extern "C" {
-#endif
+enum {
+    BUTTON_A_ID = 0,
+    BUTTON_B_ID,
+    BUTTON_X_ID,
+    BUTTON_Y_ID,
+    BUTTON_ST_ID,
+    BUTTON_DL_ID,
+    BUTTON_DR_ID,
+    BUTTON_DD_ID,
+    BUTTON_DU_ID,
+    BUTTON_Z_ID,
+    BUTTON_RD_ID,
+    BUTTON_LD_ID,
+    BUTTON_LA_ID,
+    BUTTON_RA_ID,
+    BUTTON_Z2_ID
+    N_BUTTONS
+} ButtonsID;
 
 void buttonsInit(void);
 void buttonsUpdate(void);
 uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode);
-
-#ifdef  __cplusplus
-}
-#endif
+void buttonsSetMapByte0(uint8_t* map);
+void buttonsSetMapByte1(uint8_t* map);
 
 #endif

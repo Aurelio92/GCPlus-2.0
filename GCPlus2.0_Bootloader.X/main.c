@@ -243,6 +243,38 @@ void main(void) {
                     SISendMessage(msgAnswer, 1);
                 break;
 
+                case GCP_CMD_MAPBYTE0:
+                    if (!gcpLocked) {
+                        if (cmdLen == (N_BUTTONS + 1)) {
+                            buttonsSetMapByte0(&cmd[1]);
+                            msgAnswer[0] = GCP_ERR_NONE;
+                            SISendMessage(msgAnswer, 1);
+                        } else {
+                            msgAnswer[0] = GCP_ERR_WRONGARG;
+                            SISendMessage(msgAnswer, 1);
+                        }
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_MAPBYTE1:
+                    if (!gcpLocked) {
+                        if (cmdLen == (N_BUTTONS + 1)) {
+                            buttonsSetMapByte1(&cmd[1]);
+                            msgAnswer[0] = GCP_ERR_NONE;
+                            SISendMessage(msgAnswer, 1);
+                        } else {
+                            msgAnswer[0] = GCP_ERR_WRONGARG;
+                            SISendMessage(msgAnswer, 1);
+                        }
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
                 case GCP_CMD_RESETIDX:
                     if (!gcpLocked) {
                         flashBufferIdx = 0;
