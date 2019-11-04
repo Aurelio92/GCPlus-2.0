@@ -53,7 +53,7 @@ void configSetDefault(void) {
     config.axInvert = 0x00;
     config.SDeadzone = 0x18;
     config.CDeadzone = 0x18;
-    config.deadzoneMode = 0;
+    config.deadzoneMode = DZ_MODE_SCALEDRADIAL;
 
     //Rumble
     config.rumbleIntensity = 0xFF;

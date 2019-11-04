@@ -10,12 +10,12 @@
         outButtons.##b = prevButtons.##b ^ 1; \
     }*/
 
-#define CHECK_DEBOUNCE_BYTE0(b) if (buttonsTimers[BUTTON_##b##_ID] >= DEBOUNCE) { \
+#define CHECK_DEBOUNCE_BYTE0(b) if (buttonsTimers[BUTTON_##b##_ID] >= DEBOUNCE && !prevButtons.##b) { \
         buttonsTimers[BUTTON_##b##_ID] = DEBOUNCE; \
         outButtons.byte0 |= buttonsMapByte0[BUTTON_##b##_ID]; \
     }
 
-#define CHECK_DEBOUNCE_BYTE1(b) if (buttonsTimers[BUTTON_##b##_ID] >= DEBOUNCE) { \
+#define CHECK_DEBOUNCE_BYTE1(b) if (buttonsTimers[BUTTON_##b##_ID] >= DEBOUNCE && !prevButtons.##b) { \
         buttonsTimers[BUTTON_##b##_ID] = DEBOUNCE; \
         outButtons.byte1 |= buttonsMapByte1[BUTTON_##b##_ID]; \
     }
