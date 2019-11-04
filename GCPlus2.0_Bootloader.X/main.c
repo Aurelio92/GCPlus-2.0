@@ -404,7 +404,7 @@ void portsInit(void) {
     RB2PPS = 0x04; //CLC4 to RB2
 
     //Rumble PWM
-    RB4PPS = 0x09; //CCP1
+    RB3PPS = 0x09; //CCP1
 
     PPSLOCK = 0x55;
     PPSLOCK = 0xAA;
