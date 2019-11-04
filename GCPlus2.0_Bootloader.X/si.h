@@ -15,8 +15,10 @@
 #define GCP_CMD_READEEPROM      0x13
 #define GCP_CMD_RESET           0x14
 #define GCP_CMD_BOOTBL          0x15
-#define GCP_CMD_MAPBYTE0        0x16
-#define GCP_CMD_MAPBYTE1        0x17
+#define GCP_CMD_SETMAPBYTE0     0x16
+#define GCP_CMD_SETMAPBYTE1     0x17
+#define GCP_CMD_GETMAPBYTE0     0x18
+#define GCP_CMD_GETMAPBYTE1     0x19
 
 //GC+2.0 bootloader specific commands
 #define GCP_CMD_RESETIDX        0x70

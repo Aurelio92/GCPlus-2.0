@@ -86,6 +86,8 @@ void buttonsUpdate(void);
 uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode);
 void buttonsSetMapByte0(uint8_t* map);
 void buttonsSetMapByte1(uint8_t* map);
+uint8_t* buttonsGetMapByte0(void);
+uint8_t* buttonsGetMapByte1(void);
 
 /*! \fn void buttonsBuildLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t invert);
     \brief builds a 256 bytes LUT for analog inputs scaling

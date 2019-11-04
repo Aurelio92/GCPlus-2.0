@@ -238,7 +238,7 @@ void main(void) {
                     SISendMessage(msgAnswer, 1);
                 break;
 
-                case GCP_CMD_MAPBYTE0:
+                case GCP_CMD_SETMAPBYTE0:
                     if (!gcpLocked) {
                         if (cmdLen == (N_BUTTONS + 1)) {
                             buttonsSetMapByte0(&cmd[1]);
@@ -254,7 +254,7 @@ void main(void) {
                     }
                 break;
 
-                case GCP_CMD_MAPBYTE1:
+                case GCP_CMD_SETMAPBYTE1:
                     if (!gcpLocked) {
                         if (cmdLen == (N_BUTTONS + 1)) {
                             buttonsSetMapByte1(&cmd[1]);
@@ -264,6 +264,24 @@ void main(void) {
                             msgAnswer[0] = GCP_ERR_WRONGARG;
                             SISendMessage(msgAnswer, 1);
                         }
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_GETMAPBYTE0:
+                    if (!gcpLocked) {
+                        SISendMessage(buttonsGetMapByte0(), N_BUTTONS);
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
+                break;
+
+                case GCP_CMD_GETMAPBYTE1:
+                    if (!gcpLocked) {
+                        SISendMessage(buttonsGetMapByte1(), N_BUTTONS);
                     } else {
                         msgAnswer[0] = GCP_ERR_LOCKED;
                         SISendMessage(msgAnswer, 1);

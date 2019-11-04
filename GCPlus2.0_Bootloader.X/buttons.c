@@ -213,6 +213,26 @@ void buttonsSetMapByte1(uint8_t* map) {
     }
 }
 
+uint8_t* buttonsGetMapByte0(void) {
+    uint8_t i;
+
+    for (i = 0; i < N_BUTTONS; i++) {
+        buttonsMessage[i] = buttonsMapByte0[i];
+    }
+
+    return buttonsMessage;
+}
+
+uint8_t* buttonsGetMapByte1(void) {
+    uint8_t i;
+
+    for (i = 0; i < N_BUTTONS; i++) {
+        buttonsMessage[i] = buttonsMapByte1[i];
+    }
+
+    return buttonsMessage;
+}
+
 void buttonsBuildLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t dzMode, uint8_t invert) {
     int16_t i;
     int16_t range = ((int16_t)maxVal - (int16_t)minVal) / 2;
