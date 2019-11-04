@@ -41,10 +41,10 @@
         <targetDevice>PIC18F25K42</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>PICkit3PlatformTool</platformTool>
+        <platformTool>Simulator</platformTool>
         <languageToolchain>XC8</languageToolchain>
         <languageToolchainVersion>2.05</languageToolchainVersion>
-        <platform>2</platform>
+        <platform>4</platform>
       </toolsSet>
       <packs>
         <pack name="PIC18F-K_DFP" vendor="Microchip" version="1.0.53"/>

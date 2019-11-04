@@ -45,7 +45,7 @@ void ADCInit(uint8_t sxCh, uint8_t syCh, uint8_t cxCh, uint8_t cyCh) {
     ADCChannels[2] = cxCh;
     ADCChannels[3] = cyCh;
 
-    //Read each channel
+    //Read each channel once
     ADTIF = 0;
     for (i = 0; i < ADC_NCHANNELS; i++) {
         ADPCH = ADCChannels[i];

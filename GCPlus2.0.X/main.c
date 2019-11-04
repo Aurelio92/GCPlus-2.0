@@ -127,19 +127,6 @@ void main(void) {
     LUTBuild(LUT_CX, EEPROMRead(0x05), EEPROMRead(0x04), ADCValues[2], deadzone, invert & 0x04);
     LUTBuild(LUT_CY, EEPROMRead(0x07), EEPROMRead(0x06), ADCValues[3], deadzone, invert & 0x08);
 
-    /*while(1){
-        SISendMessage(msgTemp, 3);
-        //Wait 80us to make sure the ADC has valid data
-        T4CLK = 0x01; //FOSC/4 (16MHz)
-        T4RST = 0x00;
-        T4TMR = 0x00;
-        T4PR = 20;
-        T4CON = 0xF5; //T4ON = 1. Prescaler = 1:128. Postscaler = 1:5
-        PIR7bits.TMR4IF = 0;
-        while(!PIR7bits.TMR4IF);
-        T4CON = 0;
-    }*/
-
     while (1) {
         buttonsUpdate();
         cmdLen = SIGetCommand(cmd);

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <math.h>
 #include "nvm.h"
 #include "config.h"
 #include "adc.h"
@@ -28,18 +29,6 @@
     \brief initialize GPIO ports and PPS to the proper state
 */
 void portsInit(void);
-
-/*! \fn void LUTBuild(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t invert);
-    \brief builds a 256 bytes LUT for analog inputs scaling
-    \param LUT the destination address
-    \param minVal the minimum value of the input range
-    \param maxVal the maximum value of the input range
-    \param origin the center position of the input value
-    \param dz the deadzone radius of the input range
-    \param dzMode the deadzone mode from configuration EEPROM
-    \param invert a flag to invert the axis
-*/
-void LUTBuild(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t dzMode, uint8_t invert);
 
 /*! \fn void bootPayload(void)
     \brief cleans up the stack, sets the new interrupt base address and jumps to the payload address

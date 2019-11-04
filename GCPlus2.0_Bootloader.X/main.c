@@ -55,10 +55,6 @@ void main(void) {
     uint8_t cmdLen = 0;
     char cmd[0x20];
     char msgAnswer[0x20];
-    uint8_t LUT_SX[0x100];
-    uint8_t LUT_SY[0x100];
-    uint8_t LUT_CX[0x100];
-    uint8_t LUT_CY[0x100];
     uint8_t gcpLocked = 1;
 
     //Bootloader buffer stuff
@@ -106,15 +102,14 @@ void main(void) {
         configFlashAll();
     }
 
-    //Build LUTs
-    LUTBuild(LUT_SX, config.SXMin, config.SXMax, ADC_SX, config.SDeadzone, config.deadzoneMode, config.SXInvert);
-    LUTBuild(LUT_SY, config.SYMin, config.SYMax, ADC_SY, config.SDeadzone, config.deadzoneMode, config.SYInvert);
-    LUTBuild(LUT_CX, config.CXMin, config.CXMax, ADC_CX, config.CDeadzone, config.deadzoneMode, config.CXInvert);
-    LUTBuild(LUT_CY, config.CYMin, config.CYMax, ADC_CY, config.CDeadzone, config.deadzoneMode, config.CYInvert);
+    buttonsBuildLUTs();
 
     INTCON0 = 0x80; //Interrupts enabled with no priority
 
     while (1) {
+        inBut.PORTA = PORTA;
+        inBut.PORTB = PORTB;
+        inBut.PORTC = PORTC;
         //If X+Y+Start are all pressed, don't reset the wdt
         if (inBut.X || inBut.Y || inBut.ST) {
             asm("clrwdt");
@@ -413,30 +408,6 @@ void portsInit(void) {
     ODCONA = 0x00;
     ODCONB = 0x04;
     ODCONC = 0x00;
-}
-
-void LUTBuild(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t dzMode, uint8_t invert) {
-    int16_t i;
-    int16_t range = ((int16_t)maxVal - (int16_t)minVal) / 2;
-
-    for (i = 0; i < 256; i++) {
-        int16_t radius = i - origin;
-        if (invert) radius = -radius;
-        if (ABS(radius) < (int16_t)dz) {
-            LUT[i] = 0x80;
-        } else {
-            int16_t tempVal;
-            if (dzMode == DZ_MODE_RADIAL) {
-                tempVal = radius * 127 / range;
-            } else {
-                tempVal = (radius - dz) * 127 / (range - dz);
-            }
-            tempVal += 128;
-            if (tempVal < 0) tempVal = 0;
-            if (tempVal > 0xFF) tempVal = 0xFF;
-            LUT[i] = (uint8_t)tempVal & 0xFFU;
-        }
-    }
 }
 
 void bootPayload(void) {

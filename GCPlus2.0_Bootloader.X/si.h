@@ -31,7 +31,6 @@
 #define GCP_ERR_WRONGARG    0xFE
 #define GCP_ERR_WRONGMODE   0xFD
 
-
 //Rumble
 #define PAD_MOTOR_STOP          0
 #define PAD_MOTOR_RUMBLE        1

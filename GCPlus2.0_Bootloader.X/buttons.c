@@ -30,6 +30,10 @@ uint8_t buttonsTimers[N_BUTTONS];
 uint8_t buttonsMessage[8];
 uint8_t buttonsMapByte0[N_BUTTONS];
 uint8_t buttonsMapByte1[N_BUTTONS];
+uint8_t LUT_SX[0x100];
+uint8_t LUT_SY[0x100];
+uint8_t LUT_CX[0x100];
+uint8_t LUT_CY[0x100];
 
 void buttonsInit(void) {
     //Use timer 0 as a 1 ms timer for debouncing
@@ -138,8 +142,8 @@ void buttonsUpdate(void) {
 uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode) {
     buttonsMessage[0] = outButtons.byte0;
     buttonsMessage[1] = outButtons.byte1;
-    buttonsMessage[2] = ADC_SX;
-    buttonsMessage[3] = ADC_SY;
+    buttonsMessage[2] = LUT_SX[ADC_SX];
+    buttonsMessage[3] = LUT_SY[ADC_SY];
 
     uint8_t ra, la;
     if (triggersMode == TRIG_MODE_DIGITAL) {
@@ -155,36 +159,36 @@ uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode) {
         case 5:
         case 6:
         case 7:
-            buttonsMessage[4] = ADC_CX;
-            buttonsMessage[5] = ADC_CY;
+            buttonsMessage[4] = LUT_CX[ADC_CX];
+            buttonsMessage[5] = LUT_CY[ADC_CY];
             buttonsMessage[6] = (la & 0xF0) | (ra >> 4);
             buttonsMessage[7] = 0x00; //Analog A/B
         break;
 
         case 1:
-            buttonsMessage[4] = (ADC_CX & 0xF0) | (ADC_CY >> 4);
+            buttonsMessage[4] = (LUT_CX[ADC_CX] & 0xF0) | (LUT_CY[ADC_CY] >> 4);
             buttonsMessage[5] = la;
             buttonsMessage[6] = ra;
             buttonsMessage[7] = 0x00; //Analog A/B
         break;
 
         case 2:
-            buttonsMessage[4] = (ADC_CX & 0xF0) | (ADC_CY >> 4);
+            buttonsMessage[4] = (LUT_CX[ADC_CX] & 0xF0) | (LUT_CY[ADC_CY] >> 4);
             buttonsMessage[5] = (la & 0xF0) | (ra >> 4);
             buttonsMessage[6] = 0x00; //Analog A
             buttonsMessage[7] = 0x00; //Analog B
         break;
 
         case 3:
-            buttonsMessage[4] = ADC_CX;
-            buttonsMessage[5] = ADC_CY;
+            buttonsMessage[4] = LUT_CX[ADC_CX];
+            buttonsMessage[5] = LUT_CY[ADC_CY];
             buttonsMessage[6] = ADC_L;
             buttonsMessage[7] = ADC_R;
         break;
 
         case 4:
-            buttonsMessage[4] = ADC_CX;
-            buttonsMessage[5] = ADC_CY;
+            buttonsMessage[4] = LUT_CX[ADC_CX];
+            buttonsMessage[5] = LUT_CY[ADC_CY];
             buttonsMessage[6] = 0x00; //Analog A
             buttonsMessage[7] = 0x00; //Analog B
         break;
@@ -207,4 +211,38 @@ void buttonsSetMapByte1(uint8_t* map) {
     for (i = 0; i < N_BUTTONS; i++) {
         buttonsMapByte1[i] = map[i];
     }
+}
+
+void buttonsBuildLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t dzMode, uint8_t invert) {
+    int16_t i;
+    int16_t range = ((int16_t)maxVal - (int16_t)minVal) / 2;
+
+    for (i = 0; i < 256; i++) {
+        int16_t radius = i - origin;
+        if (invert) radius = -radius;
+        if (ABS(radius) < (int16_t)dz) {
+            LUT[i] = 0x80;
+        } else {
+            int16_t tempVal;
+            if (dzMode == DZ_MODE_RADIAL) {
+                tempVal = radius * 127 / range;
+            } else {
+                if (radius > 0)
+                    tempVal = (radius - dz) * 127 / (range - dz);
+                else
+                    tempVal = (radius + dz) * 127 / (range - dz);
+            }
+            tempVal += 128;
+            if (tempVal < 0) tempVal = 0;
+            if (tempVal > 0xFF) tempVal = 0xFF;
+            LUT[i] = (uint8_t)tempVal & 0xFFU;
+        }
+    }
+}
+
+void buttonsBuildLUTs(void) {
+    buttonsBuildLUT(LUT_SX, config.SXMin, config.SXMax, ADC_SX, config.SDeadzone, config.deadzoneMode, config.SXInvert);
+    buttonsBuildLUT(LUT_SY, config.SYMin, config.SYMax, ADC_SY, config.SDeadzone, config.deadzoneMode, config.SYInvert);
+    buttonsBuildLUT(LUT_CX, config.CXMin, config.CXMax, ADC_CX, config.CDeadzone, config.deadzoneMode, config.CXInvert);
+    buttonsBuildLUT(LUT_CY, config.CYMin, config.CYMax, ADC_CY, config.CDeadzone, config.deadzoneMode, config.CYInvert);
 }
