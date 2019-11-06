@@ -14,6 +14,7 @@
 #include "draw.h"
 #include "font.h"
 #include "animation.h"
+#include "vector2.h"
 
 #include "Menlo-Regular_ttf.h"
 #include "SFMono-Regular_otf.h"
@@ -21,6 +22,8 @@
 
 #include "textures.h"
 #include "textures_tpl.h"
+
+#define PI 3.14159265359f
 
 void drawTopBar(Font& font);
 void drawBottomBar(Font& font);
@@ -39,10 +42,38 @@ int main(int argc, char **argv) {
     Font sfmono(SFMono_Regular_otf, SFMono_Regular_otf_size, 20);
 
     TPL_OpenTPLFromMemory(&tdf, (void*)textures_tpl, textures_tpl_size);
-    Texture tex1 = createTextureFromTPL(&tdf, 2);
-    Texture tex2 = createTextureFromTPL(&tdf, 3);
+    Texture tex1 = createTextureFromTPL(&tdf, 0);
+    Texture tex2 = createTextureFromTPL(&tdf, 1);
 
+    Animation<Vector2> anim;
+    Vector2 xy;
+    Vector2 xy1;
+    Vector2 xy2;
+    anim.setOutput(&xy);
+    xy1 = Vector2(0, 0);
+    xy2 = Vector2(0, 0);
+    anim.addStep(millisecs_to_ticks(1000), xy1, xy2);
+    xy1 = Vector2(0, 0);
+    xy2 = Vector2(48, 0);
+    anim.addStep(millisecs_to_ticks(100), xy1, xy2);
+    xy1 = Vector2(48, 0);
+    xy2 = Vector2(48, 0);
+    anim.addStep(millisecs_to_ticks(1000), xy1, xy2);
 
+    for (int i = 0; i < 99; i++) {
+        float x1 = 48 * cos(i * 2 * PI / 100);
+        float y1 = 48 * sin(i * 2 * PI / 100);
+        float x2 = 48 * cos((i + 1) * 2 * PI / 100);
+        float y2 = 48 * sin((i + 1) * 2 * PI / 100);
+        xy1 = Vector2(x1, y1);
+        xy2 = Vector2(x2, y2);
+        anim.addStep(millisecs_to_ticks(10), xy1, xy2);
+    }
+    xy1 = Vector2(48, 0);
+    xy2 = Vector2(48, 0);
+    anim.addStep(millisecs_to_ticks(300), xy1, xy2);
+    anim.addReturnToHomeStep(millisecs_to_ticks(100));
+    anim.resume();
 
     srand(time(NULL));
 
@@ -55,9 +86,14 @@ int main(int argc, char **argv) {
         int down = PAD_ButtonsDown(0);
         if (down & PAD_BUTTON_START) exit(0);
 
+        anim.animate();
+
         Gfx::startDrawing();
-        drawTextureResized(0, 0, 64, 64, tex2);
-        drawTextureResized(0, 0, 64, 64, tex1);
+        Gfx::pushMatrix();
+        Gfx::translate(100, 100);
+        drawTextureResized(0, 0, 128, 128, tex2);
+        drawTextureResized(xy[0], xy[1], 128, 128, tex1);
+        Gfx::popMatrix();
         Gfx::endDrawing();
 
         /*if (selected == 0) {
