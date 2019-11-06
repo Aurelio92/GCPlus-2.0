@@ -25,15 +25,15 @@
 #pragma config XINST = OFF      // Extended Instruction Set Enable bit (Extended Instruction Set and Indexed Addressing Mode disabled)
 
 // CONFIG3L
-#pragma config WDTCPS = WDTCPS_31// WDT Period selection bits (Divider ratio 1:65536; software control of WDTPS)
-#pragma config WDTE = OFF       // WDT operating mode (WDT Disabled; SWDTEN is ignored)
+#pragma config WDTCPS = WDTCPS_12// WDT Period selection bits (Divider ratio 1:131072)
+#pragma config WDTE = ON        // WDT operating mode (WDT enabled regardless of sleep)
 
 // CONFIG3H
 #pragma config WDTCWS = WDTCWS_7// WDT Window Select bits (window always open (100%); software control; keyed access not required)
-#pragma config WDTCCS = SC      // WDT input clock selector (Software Control)
+#pragma config WDTCCS = LFINTOSC// WDT input clock selector (WDT reference clock is the 31.0 kHz LFINTOSC)
 
 // CONFIG4L
-#pragma config BBSIZE = BBSIZE_2048// Boot Block Size selection bits (Boot Block size is 2048 words)
+#pragma config BBSIZE = BBSIZE_4096// Boot Block Size selection bits (Boot Block size is 4096 words)
 #pragma config BBEN = ON        // Boot Block enable bit (Boot block enabled)
 #pragma config SAFEN = ON       // Storage Area Flash enable bit (SAF enabled)
 #pragma config WRTAPP = OFF     // Application Block write protection bit (Application Block not write protected)
@@ -61,7 +61,7 @@ void main(void) {
     uint8_t flashBuffer[64];
     uint8_t flashBufferIdx;
 
-    /*//Clock should already be set at 64MHz in the configuration register. This is useless
+    /*//Clock is already be set at 64MHz in the configuration register. This is useless
     // NOSC HFINTOSC; NDIV 1;
     OSCCON1 = 0x60;
     // CSWHOLD may proceed; SOSCPWR Low power;
@@ -110,7 +110,7 @@ void main(void) {
         inBut.PORTA = PORTA;
         inBut.PORTB = PORTB;
         inBut.PORTC = PORTC;
-        //If X+Y+Start are all pressed, don't reset the wdt
+        //If X+Y+Start are all pressed, don't reset the WDT
         if (inBut.X || inBut.Y || inBut.ST) {
             asm("clrwdt");
         }
@@ -174,9 +174,9 @@ void main(void) {
                 case GCP_CMD_GETVER:
                     if (!gcpLocked) {
                         msgAnswer[0] = 0x01; //Bootloader
-                        msgAnswer[1] = GCP2_VERSION & 0xFF;
+                        msgAnswer[1] = GCP2_VERSION & 0xFFUL;
                         msgAnswer[2] = (GCP2_VERSION >> 8) & 0xFF;
-                        msgAnswer[3] = GCP2_HWVERSION & 0xFF;
+                        msgAnswer[3] = GCP2_HWVERSION & 0xFFUL;
                         msgAnswer[4] = (GCP2_HWVERSION >> 8) & 0xFF;
                         SISendMessage(msgAnswer, 5);
                     } else {
@@ -434,5 +434,5 @@ void bootPayload(void) {
     IVTBASE = addr + 8; //Set interrupt base address
     PCLATU = 0x00;
     PCLATH = (addr >> 8) & 0xFF;
-    PCL = addr & 0xFF;
+    PCL = addr & 0xFFUL;
 }

@@ -16,7 +16,7 @@ void interrupt hi_int(void) //High priority interrupt
         SMT1PWAIF = 0;
 
         SITempByte <<= 1;
-        SITempByte |= (SMT1CPWL < 128) ? 1 : 0;
+        SITempByte |= (SMT1CPWL < 128) ? 1U : 0U;
 
         //Clear flags to allow reception data with bit 7 set
         SICMDReceived = 0;
@@ -33,41 +33,6 @@ void interrupt hi_int(void) //High priority interrupt
             if (SITempByte == 1 && SIByteCounter > 0) {
                 SICMDReceived = 1;
             }
-        }
-    }
-
-    if (PIR7bits.INT2IF && PIE7bits.INT2IE) {
-        asm("nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n"\
-            "nop\n");
-
-        SITempByte <<= 1;
-        SITempByte |= PORTBbits.RB2; //(SMT1CPWL < 128) ? 1 : 0;
-
-        //Clear flags to allow reception data with bit 7 set
-        SICMDReceived = 0;
-        T6TMR = 0;
-        PIR7bits.INT2IF = 0;
-
-        ++SIBitCounter;
-        if (SIBitCounter == 8) {
-            SIInputMessage[SIByteCounter] = SITempByte;
-            SITempByte = 0x00;
-            SIBitCounter = 0;
-            ++SIByteCounter;
         }
     }
 
@@ -131,9 +96,6 @@ void SIInit(void) {
     IPR1bits.SMT1PWAIP = 1; //High priority
     PIE1bits.SMT1PWAIE = 1;
     SMT1CON1bits.GO = 1;
-
-    //PIR7bits.INT2IF = 0;
-    //PIE7bits.INT2IE = 1;
 }
 
 #define METHOD 1

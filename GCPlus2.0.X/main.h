@@ -30,9 +30,9 @@
 */
 void portsInit(void);
 
-/*! \fn void bootPayload(void)
-    \brief cleans up the stack, sets the new interrupt base address and jumps to the payload address
+/*! \fn void bootBootloader(void)
+    \brief cleans up the stack, sets the new interrupt base address and jumps to the bootloader address
 */
-void bootPayload(void);
+void bootBootloader(void);
 
 #endif

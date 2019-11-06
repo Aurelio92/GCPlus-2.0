@@ -1,49 +1,60 @@
-// CONFIG1L
-#pragma config FEXTOSC = OFF    // External Oscillator Selection->Oscillator not enabled
-#pragma config RSTOSC = HFINTOSC_64MHZ    // Reset Oscillator Selection->HFINTOSC with HFFRQ = 64 MHz and CDIV = 1:1
+#include "main.h"
 
-// CONFIG1H
-#pragma config CLKOUTEN = OFF    // Clock out Enable bit->CLKOUT function is disabled
-#pragma config PR1WAY = ON    // PRLOCKED One-Way Set Enable bit->PRLOCK bit can be cleared and set only once
-#pragma config CSWEN = ON    // Clock Switch Enable bit->Writing to NOSC and NDIV is allowed
-#pragma config FCMEN = ON    // Fail-Safe Clock Monitor Enable bit->Fail-Safe Clock Monitor enabled
+config_t config;
 
-// CONFIG2L
-#pragma config MCLRE = EXTMCLR    // MCLR Enable bit->If LVP = 0, MCLR pin is MCLR; If LVP = 1, RE3 pin function is MCLR 
-#pragma config PWRTS = PWRT_OFF    // Power-up timer selection bits->PWRT is disabled
-#pragma config MVECEN = OFF    // Multi-vector enable bit->Interrupt contoller does not use vector table to prioritze interrupts
-#pragma config IVT1WAY = ON    // IVTLOCK bit One-way set enable bit->IVTLOCK bit can be cleared and set only once
-#pragma config LPBOREN = OFF    // Low Power BOR Enable bit->ULPBOR disabled
-#pragma config BOREN = SBORDIS    // Brown-out Reset Enable bits->Brown-out Reset enabled , SBOREN bit is ignored
+void configInit(void) {
+    uint8_t* data = (uint8_t*)&config;
+    uint8_t i;
+    for (i = 0; i < sizeof(config_t); i++) {
+        asm("clrwdt");
+        data[i] = EEPROMReadByte(i);
 
-// CONFIG2H
-#pragma config BORV = VBOR_2P45    // Brown-out Reset Voltage Selection bits->Brown-out Reset Voltage (VBOR) set to 2.45V
-#pragma config ZCD = OFF    // ZCD Disable bit->ZCD disabled. ZCD can be enabled by setting the ZCDSEN bit of ZCDCON
-#pragma config PPS1WAY = ON    // PPSLOCK bit One-Way Set Enable bit->PPSLOCK bit can be cleared and set only once; PPS registers remain locked after one clear/set cycle
-#pragma config STVREN = ON    // Stack Full/Underflow Reset Enable bit->Stack full/underflow will cause Reset
-#pragma config DEBUG = OFF    // Debugger Enable bit->Background debugger disabled
-#pragma config XINST = OFF    // Extended Instruction Set Enable bit->Extended Instruction Set and Indexed Addressing Mode disabled
+        //Check magic code
+        if (i == 3U && config.magicCode != 0x322B4347UL) {
+            //Magic code wrong. Set default configuration
+            configSetDefault();
+            configFlashAll();
+        }
+    }
+}
 
-// CONFIG3L
-#pragma config WDTCPS = WDTCPS_31    // WDT Period selection bits->Divider ratio 1:65536; software control of WDTPS
-#pragma config WDTE = OFF    // WDT operating mode->WDT Disabled; SWDTEN is ignored
+void configSetDefault(void) {
+    //Clear all parameters
+    memset((void*)&config, 0, sizeof(config_t));
 
-// CONFIG3H
-#pragma config WDTCWS = WDTCWS_7    // WDT Window Select bits->window always open (100%); software control; keyed access not required
-#pragma config WDTCCS = SC    // WDT input clock selector->Software Control
+    //Header
+    config.magicCode = 0x322B4347UL;
+    config.version = GCP2_VERSION;
 
-// CONFIG4L
-#pragma config BBSIZE = BBSIZE_512    // Boot Block Size selection bits->Boot Block size is 512 words
-#pragma config BBEN = OFF    // Boot Block enable bit->Boot block disabled
-#pragma config SAFEN = OFF    // Storage Area Flash enable bit->SAF disabled
-#pragma config WRTAPP = OFF    // Application Block write protection bit->Application Block not write protected
+    //Sticks configuration
+    config.SXMin = 0x00;
+    config.SXMax = 0xFF;
+    config.SYMin = 0x00;
+    config.SYMax = 0xFF;
+    config.CXMin = 0x00;
+    config.CXMax = 0xFF;
+    config.CYMin = 0x00;
+    config.CYMax = 0xFF;
+    config.SXChan = 0x02;
+    config.SYChan = 0x03;
+    config.CXChan = 0x00;
+    config.CYChan = 0x01;
+    config.axInvert = 0x00;
+    config.SDeadzone = 0x18;
+    config.CDeadzone = 0x18;
+    config.deadzoneMode = DZ_MODE_SCALEDRADIAL;
 
-// CONFIG4H
-#pragma config WRTB = OFF    // Configuration Register Write Protection bit->Configuration registers (300000-30000Bh) not write-protected
-#pragma config WRTC = OFF    // Boot Block Write Protection bit->Boot Block (000000-0007FFh) not write-protected
-#pragma config WRTD = OFF    // Data EEPROM Write Protection bit->Data EEPROM not write-protected
-#pragma config WRTSAF = OFF    // SAF Write protection bit->SAF not Write Protected
-#pragma config LVP = ON    // Low Voltage Programming Enable bit->Low voltage programming enabled. MCLR/VPP pin function is MCLR. MCLRE configuration bit is ignored
+    //Rumble
+    config.rumbleIntensity = 0xFF;
 
-// CONFIG5L
-#pragma config CP = OFF    // PFM and Data EEPROM Code Protection bit->PFM and Data EEPROM code protection disabled
+    //Triggers mode
+    config.triggersMode = 0; //Digital
+}
+
+void configFlashAll(void) {
+    uint8_t i;
+    uint8_t* data = (uint8_t*)&config;
+    for (i = 0; i < sizeof(config_t); i++) {
+        EEPROMWriteByte(i, data[i]);
+    }
+}

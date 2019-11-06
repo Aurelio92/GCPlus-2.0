@@ -18,17 +18,6 @@ void configInit(void) {
     }
 }
 
-uint8_t* configGetPointer(void) {
-    return ((uint8_t*)&config);
-}
-
-void configUpdateField(uint8_t* field, uint8_t len) {
-    uint32_t address = (uint32_t)(field - (uint8_t*)&config) & 0xFFU;
-    while (len--) {
-        EEPROMWriteByte(address++, *field++);
-    }
-}
-
 void configSetDefault(void) {
     //Clear all parameters
     memset((void*)&config, 0, sizeof(config_t));

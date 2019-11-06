@@ -11,18 +11,17 @@
 #include "adc.h"
 
 uint8_t ADCChannels[ADC_NCHANNELS] = {
-    //RA0 -> CH0
-    //...
-    //RA3 -> CH3
-    //SX, SY,   CX,   CY
-    0x02, 0x03, 0x00, 0x01
+    //SX, SY,   CX,   CY,   R,   L
+    0x02, 0x03, 0x00, 0x01, 0x13, 0x14
 };
 
 uint8_t ADCValues[ADC_NCHANNELS] = {
-    0x80, 0x80, 0x80, 0x80
+    0x80, 0x80, 0x80, 0x80, 0x00, 0x00
 };
 
-void ADCInit(void) {
+void ADCInit(uint8_t sxCh, uint8_t syCh, uint8_t cxCh, uint8_t cyCh) {
+    uint8_t i;
+
     //Setup ADC. On each interrupt the averaged 8bit result will be in ADFLTRH
     ADCON0 = 0x80;  //ADC enabled. Continuous operation.
                     //Left justified. Will be retriggered by DMA1.
@@ -40,6 +39,20 @@ void ADCInit(void) {
     //Enable charge pump
     ADCPbits.CPON = 1;
     while (!ADCPbits.CPRDY);
+
+    ADCChannels[0] = sxCh;
+    ADCChannels[1] = syCh;
+    ADCChannels[2] = cxCh;
+    ADCChannels[3] = cyCh;
+
+    //Read each channel once
+    ADTIF = 0;
+    for (i = 0; i < ADC_NCHANNELS; i++) {
+        ADPCH = ADCChannels[i];
+        while(!ADTIF);
+        ADTIF = 0;
+        ADCValues[i] = ADFLTRL;
+    }
 
     //Unlock
     asm ("banksel PRLOCK");

@@ -7,6 +7,10 @@
       <itemPath>si.h</itemPath>
       <itemPath>adc.h</itemPath>
       <itemPath>buttons.h</itemPath>
+      <itemPath>config.h</itemPath>
+      <itemPath>main.h</itemPath>
+      <itemPath>nvm.h</itemPath>
+      <itemPath>rumble.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -20,6 +24,8 @@
       <itemPath>si.c</itemPath>
       <itemPath>adc.c</itemPath>
       <itemPath>buttons.c</itemPath>
+      <itemPath>nvm.c</itemPath>
+      <itemPath>rumble.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -38,7 +44,7 @@
         <platformTool>PICkit3PlatformTool</platformTool>
         <languageToolchain>XC8</languageToolchain>
         <languageToolchainVersion>2.05</languageToolchainVersion>
-        <platform>2</platform>
+        <platform>4</platform>
       </toolsSet>
       <packs>
         <pack name="PIC18F-K_DFP" vendor="Microchip" version="1.0.53"/>
@@ -102,7 +108,7 @@
       </HI-TECH-COMP>
       <HI-TECH-LINK>
         <property key="additional-options-checksum" value=""/>
-        <property key="additional-options-code-offset" value=""/>
+        <property key="additional-options-code-offset" value="2004"/>
         <property key="additional-options-command-line" value=""/>
         <property key="additional-options-errata" value=""/>
         <property key="additional-options-extend-address" value="false"/>
@@ -113,7 +119,7 @@
         <property key="calibrate-oscillator-value" value="0x3400"/>
         <property key="clear-bss" value="true"/>
         <property key="code-model-external" value="wordwrite"/>
-        <property key="code-model-rom" value=""/>
+        <property key="code-model-rom" value="default,-0-2003"/>
         <property key="create-html-files" value="false"/>
         <property key="data-model-ram" value=""/>
         <property key="data-model-size-of-double" value="32"/>

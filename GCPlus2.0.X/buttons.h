@@ -1,5 +1,5 @@
-#ifndef _BUTTONS_H
-#define _BUTTONS_H
+#ifndef _BUTTONS_H_
+#define _BUTTONS_H_
 
 typedef union {
     struct {
@@ -26,31 +26,6 @@ typedef union {
         unsigned LD : 1;
         unsigned DU : 1;
         unsigned DD : 1;
-
-        /*//PORTA
-        unsigned X  : 1;
-        unsigned    : 3;
-        unsigned Z  : 1;
-        unsigned RD : 1;
-        unsigned A  : 1;
-        unsigned RA : 1;
-
-        //PORTB
-        unsigned    : 1;
-        unsigned DR : 1;
-        unsigned DL : 1;
-        unsigned DU : 1;
-        unsigned LA : 1;
-        unsigned LD : 1;
-        unsigned    : 2;
-
-        //PORTC
-        unsigned B  : 1;
-        unsigned    : 2;
-        unsigned Y  : 1;
-        unsigned    : 2;
-        unsigned ST : 1;
-        unsigned DD : 1;*/
     };
     struct {
         uint8_t PORTA;
@@ -87,15 +62,45 @@ typedef union {
     };
 } outButtons_t;
 
-#ifdef  __cplusplus
-extern "C" {
-#endif
+enum {
+    BUTTON_A_ID = 0,
+    BUTTON_B_ID,
+    BUTTON_X_ID,
+    BUTTON_Y_ID,
+    BUTTON_ST_ID,
+    BUTTON_DL_ID,
+    BUTTON_DR_ID,
+    BUTTON_DD_ID,
+    BUTTON_DU_ID,
+    BUTTON_Z_ID,
+    BUTTON_RD_ID,
+    BUTTON_LD_ID,
+    BUTTON_LA_ID,
+    BUTTON_RA_ID,
+    BUTTON_Z2_ID,
+    N_BUTTONS
+} ButtonsID;
 
 void buttonsInit(void);
 void buttonsUpdate(void);
+uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode);
+void buttonsSetMapByte0(uint8_t* map);
+void buttonsSetMapByte1(uint8_t* map);
+uint8_t* buttonsGetMapByte0(void);
+uint8_t* buttonsGetMapByte1(void);
 
-#ifdef  __cplusplus
-}
-#endif
+/*! \fn void buttonsBuildLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t invert);
+    \brief builds a 256 bytes LUT for analog inputs scaling
+    \param LUT the destination address
+    \param minVal the minimum value of the input range
+    \param maxVal the maximum value of the input range
+    \param origin the center position of the input value
+    \param dz the deadzone radius of the input range
+    \param dzMode the deadzone mode from configuration EEPROM
+    \param invert a flag to invert the axis
+*/
+void buttonsBuildLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t dzMode, uint8_t invert);
+
+void buttonsBuildLUTs(void);
 
 #endif

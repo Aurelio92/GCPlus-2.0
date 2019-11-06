@@ -71,9 +71,9 @@ void buttonsUpdate(void) {
     PA = PORTA;
     PB = PORTB;
     PC = PORTC;
-    toggledButtons.PORTA = PA ^ prevButtons.PORTA;
-    toggledButtons.PORTB = PB ^ prevButtons.PORTB;
-    toggledButtons.PORTC = PC ^ prevButtons.PORTC;
+    toggledButtons.PORTA = (uint8_t)(PA ^ prevButtons.PORTA);
+    toggledButtons.PORTB = (uint8_t)(PB ^ prevButtons.PORTB);
+    toggledButtons.PORTC = (uint8_t)(PC ^ prevButtons.PORTC);
     //Store values for next frame
     prevButtons.PORTA = PA;
     prevButtons.PORTB = PB;
@@ -161,20 +161,21 @@ uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode) {
         case 7:
             buttonsMessage[4] = LUT_CX[ADC_CX];
             buttonsMessage[5] = LUT_CY[ADC_CY];
-            buttonsMessage[6] = (la & 0xF0) | (ra >> 4);
+            //I swear Microchip, I hate you
+            buttonsMessage[6] = (uint8_t)((uint8_t)(la & 0xF0U) | (uint8_t)(ra >> 4U));
             buttonsMessage[7] = 0x00; //Analog A/B
         break;
 
         case 1:
-            buttonsMessage[4] = (LUT_CX[ADC_CX] & 0xF0) | (LUT_CY[ADC_CY] >> 4);
+            buttonsMessage[4] = (uint8_t)((uint8_t)(LUT_CX[ADC_CX] & 0xF0U) | (uint8_t)(LUT_CY[ADC_CY] >> 4U));
             buttonsMessage[5] = la;
             buttonsMessage[6] = ra;
             buttonsMessage[7] = 0x00; //Analog A/B
         break;
 
         case 2:
-            buttonsMessage[4] = (LUT_CX[ADC_CX] & 0xF0) | (LUT_CY[ADC_CY] >> 4);
-            buttonsMessage[5] = (la & 0xF0) | (ra >> 4);
+            buttonsMessage[4] = (uint8_t)((uint8_t)(LUT_CX[ADC_CX] & 0xF0U) | (uint8_t)(LUT_CY[ADC_CY] >> 4U));
+            buttonsMessage[5] = (uint8_t)((uint8_t)(la & 0xF0U) | (uint8_t)(ra >> 4U));
             buttonsMessage[6] = 0x00; //Analog A
             buttonsMessage[7] = 0x00; //Analog B
         break;

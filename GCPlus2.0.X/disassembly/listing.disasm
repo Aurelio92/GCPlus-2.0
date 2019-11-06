@@ -1,0 +1,4135 @@
+Disassembly Listing for GCPlus2.0
+Generated From:
+/Users/aurelio/Programmazione/gcplus2-0/GCPlus2.0.X/dist/default/production/GCPlus2.0.X.production.elf
+Nov 6, 2019 3:15:46 PM
+
+---  /Users/aurelio/Programmazione/gcplus2-0/GCPlus2.0.X/si.c  ------------------------------------------
+1:             #include <xc.h>
+2:             #include <stdint.h>
+3:             #include <stdbool.h>
+4:             #include "si.h"
+5:             
+6:             static uint8_t SIInputMessage[32];
+7:             static uint8_t SIBitCounter = 0;
+8:             static uint8_t SIByteCounter = 0;
+9:             static uint8_t SICMDReceived = 0;
+10:            static uint8_t SITempByte = 0x00;
+11:            
+12:            void interrupt hi_int(void) //High priority interrupt
+13:            {
+14:                if (SMT1PWAIE && SMT1PWAIF)
+6D1C  0139     MOVLB 0x39
+6D1E  BF91     BTFSC 0x91, 7, BANKED
+6D20  AFA1     BTFSS 0xA1, 7, BANKED
+6D22  D02F     BRA 0x6D82
+15:                {
+16:                    SMT1PWAIF = 0;
+6D24  9FA1     BCF 0xA1, 7, BANKED
+17:            
+18:                    SITempByte <<= 1;
+6D26  90D8     BCF 0xFD8, 0, ACCESS
+6D28  363C     RLCF SITempByte, F, ACCESS
+19:                    SITempByte |= (SMT1CPWL < 128) ? 1U : 0U;
+6D2A  0E7F     MOVLW 0x7F
+6D2C  013F     MOVLB 0x3F
+6D2E  6518     CPFSGT 0x18, BANKED
+6D30  D001     BRA 0x6D34
+6D32  D002     BRA 0x6D38
+6D34  0E01     MOVLW 0x1
+6D36  D001     BRA 0x6D3A
+6D38  0E00     MOVLW 0x0
+6D3A  123C     IORWF SITempByte, F, ACCESS
+20:            
+21:                    //Clear flags to allow reception data with bit 7 set
+22:                    SICMDReceived = 0;
+6D3C  0E00     MOVLW 0x0
+6D3E  6E3D     MOVWF SICMDReceived, ACCESS
+23:                    T6TMR = 0;
+6D40  0E00     MOVLW 0x0
+6D42  6E92     MOVWF 0xF92, ACCESS
+24:                    //PIR3bits.TMR0IF = 0;
+25:            
+26:                    ++SIBitCounter;
+6D44  2A3F     INCF SIBitCounter, F, ACCESS
+27:                    if (SIBitCounter == 8) {
+6D46  0E08     MOVLW 0x8
+6D48  183F     XORWF SIBitCounter, W, ACCESS
+6D4A  A4D8     BTFSS 0xFD8, 2, ACCESS
+6D4C  D00F     BRA 0x6D6C
+28:                        SIInputMessage[SIByteCounter] = SITempByte;
+6D4E  0E00     MOVLW 0x0
+6D50  243E     ADDWF SIByteCounter, W, ACCESS
+6D52  6ED9     MOVWF 0xFD9, ACCESS
+6D54  6ADA     CLRF 0xFDA, ACCESS
+6D56  0E01     MOVLW 0x1
+6D58  22DA     ADDWFC 0xFDA, F, ACCESS
+6D5C  F0F3     NOP
+6D5E  FFDF     NOP
+29:                        SITempByte = 0x00;
+6D60  0E00     MOVLW 0x0
+6D62  6E3C     MOVWF SITempByte, ACCESS
+30:                        SIBitCounter = 0;
+6D64  0E00     MOVLW 0x0
+6D66  6E3F     MOVWF SIBitCounter, ACCESS
+31:                        ++SIByteCounter;
+6D68  2A3E     INCF SIByteCounter, F, ACCESS
+32:                    } else if (SIBitCounter == 1) { //Check for stop bit
+6D6A  D00B     BRA 0x6D82
+6D6C  043F     DECF SIBitCounter, W, ACCESS
+6D6E  A4D8     BTFSS 0xFD8, 2, ACCESS
+6D70  D008     BRA 0x6D82
+33:                        if (SITempByte == 1 && SIByteCounter > 0) {
+6D72  043C     DECF SITempByte, W, ACCESS
+6D74  A4D8     BTFSS 0xFD8, 2, ACCESS
+6D76  D005     BRA 0x6D82
+6D78  503E     MOVF SIByteCounter, W, ACCESS
+6D7A  B4D8     BTFSC 0xFD8, 2, ACCESS
+6D7C  D002     BRA 0x6D82
+34:                            SICMDReceived = 1;
+6D7E  0E01     MOVLW 0x1
+6D80  6E3D     MOVWF SICMDReceived, ACCESS
+35:                        }
+36:                    }
+37:                }
+38:            
+39:                if (PIR9bits.TMR6IF) {
+6D82  0139     MOVLB 0x39
+6D84  A1A9     BTFSS 0xA9, 0, BANKED
+6D86  0011     RETFIE 1
+40:                    if (SIByteCounter) {
+6D88  503E     MOVF SIByteCounter, W, ACCESS
+6D8A  B4D8     BTFSC 0xFD8, 2, ACCESS
+6D8C  D002     BRA 0x6D92
+41:                        SICMDReceived = 1;
+6D8E  0E01     MOVLW 0x1
+6D90  6E3D     MOVWF SICMDReceived, ACCESS
+42:                    }
+43:                    PIR9bits.TMR6IF = 0;
+6D92  91A9     BCF 0xA9, 0, BANKED
+44:                }
+45:            }
+6D94  0011     RETFIE 1
+46:            
+47:            void SIInit(void) {
+48:                //Set Timer6 as Falling Edge Reset. Free running with period = 5 us
+49:                T6CON = 0x00;
+6F26  0E00     MOVLW 0x0
+6F28  6E94     MOVWF 0xF94, ACCESS
+50:                T6CLK = 0x01; //FOSC/4 (16MHz)
+6F2A  0E01     MOVLW 0x1
+6F2C  6E96     MOVWF 0xF96, ACCESS
+51:                T6RST = 0x00; //T6INPPS as reset source
+6F2E  0E00     MOVLW 0x0
+6F30  6E97     MOVWF 0xF97, ACCESS
+52:                T6TMR = 0x00;
+6F32  0E00     MOVLW 0x0
+6F34  6E92     MOVWF 0xF92, ACCESS
+53:                T6PR = 0x50; //5us
+6F36  0E50     MOVLW 0x50
+6F38  6E93     MOVWF 0xF93, ACCESS
+54:                T6HLT = 0x05; //Falling edge reset. Free running
+6F3A  0E05     MOVLW 0x5
+6F3C  6E95     MOVWF 0xF95, ACCESS
+55:                PIR9bits.TMR6IF = 0;
+6F3E  0139     MOVLB 0x39
+6F40  91A9     BCF 0xA9, 0, BANKED
+56:                PIE9bits.TMR6IE = 1;
+6F42  8199     BSF 0x99, 0, BANKED
+57:            
+58:                //Use timer 2 to wait 1ms with no toggling on the data line
+59:                //This will ensure that the bus is idle when we start the program
+60:                T2CON = 0x00;
+6F44  0E00     MOVLW 0x0
+6F46  6EAC     MOVWF 0xFAC, ACCESS
+61:                T2CLK = 0x01; //FOSC/4 (16MHz)
+6F48  0E01     MOVLW 0x1
+6F4A  6EAE     MOVWF 0xFAE, ACCESS
+62:                T2RST = 0x00;
+6F4C  0E00     MOVLW 0x0
+6F4E  6EAF     MOVWF 0xFAF, ACCESS
+63:                T2TMR = 0x00;
+6F50  0E00     MOVLW 0x0
+6F52  6EAA     MOVWF 0xFAA, ACCESS
+64:                T2PR = 125;
+6F54  0E7D     MOVLW 0x7D
+6F56  6EAB     MOVWF 0xFAB, ACCESS
+65:                PIR4bits.TMR2IF = 0;
+6F58  95A4     BCF 0xA4, 2, BANKED
+66:                T2CON = 0xF0; //T2ON = 0. Prescaler = 1:128. Postscaler = 1:1
+6F5A  0EF0     MOVLW 0xF0
+6F5C  6EAC     MOVWF 0xFAC, ACCESS
+67:                while(!PIR4bits.TMR2IF) {
+6F5E  D004     BRA 0x6F68
+6F68  A5A4     BTFSS 0xA4, 2, BANKED
+6F6A  D7FA     BRA 0x6F60
+68:                    if (PORTBbits.RB2 == 0) {
+6F60  B4CB     BTFSC 0xFCB, 2, ACCESS
+6F62  D002     BRA 0x6F68
+69:                        T2TMR = 0x00;
+6F64  0E00     MOVLW 0x0
+6F66  6EAA     MOVWF 0xFAA, ACCESS
+70:                    }
+71:                }
+72:            
+73:                CCPTMRS1 = 0x55; //PWM5-8 source set to TMR2
+6F6C  0E55     MOVLW 0x55
+6F6E  013F     MOVLB 0x3F
+6F70  6F5F     MOVWF 0x5F, BANKED
+74:            
+75:                SIConfigureCLC();
+6F72  EC03     CALL 0x7206, 0
+6F74  F039     NOP
+76:            
+77:                T6CON = 0x80; //ON. 1:1 prescaler. 1:1 postscaler
+6F76  0E80     MOVLW 0x80
+6F78  6E94     MOVWF 0xF94, ACCESS
+78:            
+79:                //Setup SMT for input decoding
+80:                //HIGH AND LOW MEASURE MODE REPEAT ACQUISITION
+81:                //Use SMT1SIG as input
+82:                //Interrupt on SMT1PWAIF
+83:                SMT1PRL = 0xFF;
+6F7A  013F     MOVLB 0x3F
+6F7C  691B     SETF 0x1B, BANKED
+84:                SMT1PRH = 0xFF;
+6F7E  691C     SETF range, BANKED
+85:                SMT1PRU = 0xFF;
+6F80  691D     SETF 0x1D, BANKED
+86:                SMT1TMRL = 0x00;
+6F82  0E00     MOVLW 0x0
+6F84  6F12     MOVWF maxVal, BANKED
+87:                SMT1TMRH = 0x00;
+6F86  0E00     MOVLW 0x0
+6F88  6F13     MOVWF origin, BANKED
+88:                SMT1TMRU = 0x00;
+6F8A  0E00     MOVLW 0x0
+6F8C  6F14     MOVWF dz, BANKED
+89:                SMT1CON0 = 0x88; //SMT1SIG active low
+6F8E  0E88     MOVLW 0x88
+6F90  6F1E     MOVWF tempVal, BANKED
+90:                SMT1CON1 = 0x43; //High and low time measurement
+6F92  0E43     MOVLW 0x43
+6F94  6F1F     MOVWF 0x1F, BANKED
+91:                SMT1CLK = 0x01; //FOSC
+6F96  0E01     MOVLW 0x1
+6F98  6F21     MOVWF 0x21, BANKED
+92:                SMT1WIN = 0x00;
+6F9A  0E00     MOVLW 0x0
+6F9C  6F23     MOVWF 0x23, BANKED
+93:                SMT1SIG = 0x00; //PPS //0x18; //CLC3OUT
+6F9E  0E00     MOVLW 0x0
+6FA0  6F22     MOVWF radius, BANKED
+94:            
+95:                PIR1bits.SMT1PWAIF = 0;
+6FA2  0139     MOVLB 0x39
+6FA4  9FA1     BCF 0xA1, 7, BANKED
+96:                IPR1bits.SMT1PWAIP = 1; //High priority
+6FA6  8F81     BSF 0x81, 7, BANKED
+97:                PIE1bits.SMT1PWAIE = 1;
+6FA8  8F91     BSF 0x91, 7, BANKED
+98:                SMT1CON1bits.GO = 1;
+6FAA  013F     MOVLB 0x3F
+6FAC  8F1F     BSF 0x1F, 7, BANKED
+99:            }
+6FAE  0012     RETURN 0
+100:           
+101:           #define METHOD 1
+102:           
+103:           void SIConfigureCLC(void) {
+104:               T2CON = 0x00;
+7206  0E00     MOVLW 0x0
+7208  6EAC     MOVWF 0xFAC, ACCESS
+105:               T2CLKCON = 0x01; //FOSC/4 (16MHz)
+720A  0E01     MOVLW 0x1
+720C  6EAE     MOVWF 0xFAE, ACCESS
+106:               T2HLT = 0x04; //Resets at rising TMR2_ers
+720E  0E04     MOVLW 0x4
+7210  6EAD     MOVWF 0xFAD, ACCESS
+107:               T2RST = 0x12; //CLC2_out reset
+7212  0E12     MOVLW 0x12
+7214  6EAF     MOVWF 0xFAF, ACCESS
+108:               T2PR = 0x1F; //2us
+7216  0E1F     MOVLW 0x1F
+7218  6EAB     MOVWF 0xFAB, ACCESS
+109:               T2TMR = 0x00;
+721A  0E00     MOVLW 0x0
+721C  6EAA     MOVWF 0xFAA, ACCESS
+110:               T2CON = 0x80;
+721E  0E80     MOVLW 0x80
+7220  6EAC     MOVWF 0xFAC, ACCESS
+111:           
+112:               //50%
+113:               PWM5DCH = 0x0F;
+7222  0E0F     MOVLW 0xF
+7224  6E6D     MOVWF 0xF6D, ACCESS
+114:               PWM5DCL = 0x00;
+7226  0E00     MOVLW 0x0
+7228  6E6C     MOVWF 0xF6C, ACCESS
+115:               PWM5CON = 0x80; //Enable PWM
+722A  0E80     MOVLW 0x80
+722C  6E6E     MOVWF 0xF6E, ACCESS
+116:           
+117:               CLC1POL = 0x00;
+722E  0E00     MOVLW 0x0
+7230  013C     MOVLB 0x3C
+7232  6F75     MOVWF 0x75, BANKED
+118:               CLC1SEL0 = 0x18; //PWM5
+7234  0E18     MOVLW 0x18
+7236  6F76     MOVWF 0x76, BANKED
+119:               CLC1SEL1 = 0x05; //HFINTOSC
+7238  0E05     MOVLW 0x5
+723A  6F77     MOVWF 0x77, BANKED
+120:               CLC1SEL2 = 0x00; //Unused
+723C  0E00     MOVLW 0x0
+723E  6F78     MOVWF 0x78, BANKED
+121:               CLC1SEL3 = 0x00; //Unused
+7240  0E00     MOVLW 0x0
+7242  6F79     MOVWF 0x79, BANKED
+122:               CLC1GLS0 = 0x08; //HFINTOSC
+7244  0E08     MOVLW 0x8
+7246  6F7A     MOVWF 0x7A, BANKED
+123:               CLC1GLS1 = 0x02; //PWM5
+7248  0E02     MOVLW 0x2
+724A  6F7B     MOVWF 0x7B, BANKED
+124:               CLC1GLS2 = 0x00; //'0'
+724C  0E00     MOVLW 0x0
+724E  6F7C     MOVWF 0x7C, BANKED
+125:               CLC1GLS3 = 0x00; //'0'
+7250  0E00     MOVLW 0x0
+7252  6F7D     MOVWF 0x7D, BANKED
+126:               CLC1CON = 0x84; //D-FLIP-FLOP
+7254  0E84     MOVLW 0x84
+7256  6F74     MOVWF 0x74, BANKED
+127:           
+128:               CLC2POL = 0x00;
+7258  0E00     MOVLW 0x0
+725A  6F6B     MOVWF 0x6B, BANKED
+129:               CLC2SEL0 = 0x2C; //SCK
+725C  0E2C     MOVLW 0x2C
+725E  6F6C     MOVWF 0x6C, BANKED
+130:               CLC2SEL1 = 0x05; //HFINTOSC
+7260  0E05     MOVLW 0x5
+7262  6F6D     MOVWF 0x6D, BANKED
+131:               CLC2SEL2 = 0x00; //Unused
+7264  0E00     MOVLW 0x0
+7266  6F6E     MOVWF 0x6E, BANKED
+132:               CLC2SEL3 = 0x00; //Unused
+7268  0E00     MOVLW 0x0
+726A  6F6F     MOVWF 0x6F, BANKED
+133:               CLC2GLS0 = 0x08; //HFINTOSC
+726C  0E08     MOVLW 0x8
+726E  6F70     MOVWF 0x70, BANKED
+134:               CLC2GLS1 = 0x01; //!SCK
+7270  0E01     MOVLW 0x1
+7272  6F71     MOVWF 0x71, BANKED
+135:               CLC2GLS2 = 0x00; //'0'
+7274  0E00     MOVLW 0x0
+7276  6F72     MOVWF 0x72, BANKED
+136:               CLC2GLS3 = 0x00; //'0'
+7278  0E00     MOVLW 0x0
+727A  6F73     MOVWF 0x73, BANKED
+137:               CLC2CON = 0x84; //D-FLIP-FLOP
+727C  0E84     MOVLW 0x84
+727E  6F6A     MOVWF 0x6A, BANKED
+138:           
+139:               CLC3POL = 0x00;
+7280  0E00     MOVLW 0x0
+7282  6F61     MOVWF 0x61, BANKED
+140:               CLC3SEL0 = 0x24; //CLC1OUT
+7284  0E24     MOVLW 0x24
+7286  6F62     MOVWF 0x62, BANKED
+141:               CLC3SEL1 = 0x18; //PWM5
+7288  0E18     MOVLW 0x18
+728A  6F63     MOVWF 0x63, BANKED
+142:               CLC3SEL2 = 0x2B; //SDO
+728C  0E2B     MOVLW 0x2B
+728E  6F64     MOVWF 0x64, BANKED
+143:               CLC3SEL3 = 0x2C; //SCK
+7290  0E2C     MOVLW 0x2C
+7292  6F65     MOVWF 0x65, BANKED
+144:               CLC3GLS0 = 0x02; //CLC1OUT
+7294  0E02     MOVLW 0x2
+7296  6F66     MOVWF 0x66, BANKED
+145:               CLC3GLS1 = 0x04; //!PWM5
+7298  0E04     MOVLW 0x4
+729A  6F67     MOVWF 0x67, BANKED
+146:               CLC3GLS2 = 0x90; //(!SDO + SCK)
+729C  0E90     MOVLW 0x90
+729E  6F68     MOVWF 0x68, BANKED
+147:               CLC3GLS3 = 0x60; //(SDO + !SCK)
+72A0  0E60     MOVLW 0x60
+72A2  6F69     MOVWF 0x69, BANKED
+148:               CLC3CON = 0x82; //4-AND
+72A4  0E82     MOVLW 0x82
+72A6  6F60     MOVWF __pcstackBANK0, BANKED
+149:           
+150:               CLC4POL = 0x04;
+72A8  0E04     MOVLW 0x4
+72AA  6F57     MOVWF 0x57, BANKED
+151:               CLC4SEL0 = 0x26; //CLC3OUT
+72AC  0E26     MOVLW 0x26
+72AE  6F58     MOVWF 0x58, BANKED
+152:               CLC4SEL1 = 0x2C; //SCK
+72B0  0E2C     MOVLW 0x2C
+72B2  6F59     MOVWF 0x59, BANKED
+153:               CLC4SEL2 = 0x25; //CLC2OUT
+72B4  0E25     MOVLW 0x25
+72B6  6F5A     MOVWF 0x5A, BANKED
+154:               CLC4SEL3 = 0x00; //Unused
+72B8  0E00     MOVLW 0x0
+72BA  6F5B     MOVWF 0x5B, BANKED
+155:               CLC4GLS0 = 0x02; //CLC3OUT
+72BC  0E02     MOVLW 0x2
+72BE  6F5C     MOVWF 0x5C, BANKED
+156:               CLC4GLS1 = 0x00; //'0'
+72C0  0E00     MOVLW 0x0
+72C2  6F5D     MOVWF 0x5D, BANKED
+157:               CLC4GLS2 = 0x14; //!(!SCK+!CLC2OUT)
+72C4  0E14     MOVLW 0x14
+72C6  6F5E     MOVWF 0x5E, BANKED
+158:               CLC4GLS3 = 0x00; //'0'
+72C8  0E00     MOVLW 0x0
+72CA  6F5F     MOVWF 0x5F, BANKED
+159:               CLC4CON = 0x83; //SR
+72CC  0E83     MOVLW 0x83
+72CE  6F56     MOVWF 0x56, BANKED
+160:           
+161:               SPI1CLK = 0x05; //TMR2
+72D0  0E05     MOVLW 0x5
+72D2  013D     MOVLB 0x3D
+72D4  6F1C     MOVWF range, BANKED
+162:               SPI1BAUD = 0x00; //250kHz
+72D6  0E00     MOVLW 0x0
+72D8  6F19     MOVWF 0x19, BANKED
+163:               SPI1CON1 = 0x00;
+72DA  0E00     MOVLW 0x0
+72DC  6F15     MOVWF dzMode, BANKED
+164:               SPI1CON2 = 0x02; //Transmit only
+72DE  0E02     MOVLW 0x2
+72E0  6F16     MOVWF invert, BANKED
+165:               SPI1CON0 = 0x82; //Master mode
+72E2  0E82     MOVLW 0x82
+72E4  6F14     MOVWF dz, BANKED
+166:           }
+72E6  0012     RETURN 0
+167:           
+168:           void SISendMessage(uint8_t* msg, uint8_t len) {
+169:               int8_t leftToSend;
+170:               uint8_t idx;
+171:           
+172:               //PIE9bits.TMR6IE = 0;
+173:               //PIR9bits.TMR6IF = 0;
+174:               //T6CON = 0x00;
+175:           
+176:               //SMT disabled while sending data
+177:               SMT1CON1bits.GO = 0;
+712E  013F     MOVLB 0x3F
+7130  9F1F     BCF 0x1F, 7, BANKED
+178:           
+179:               while (!SPI1STATUSbits.TXBE);
+7132  013D     MOVLB 0x3D
+7134  AB17     BTFSS 0x17, 5, BANKED
+7136  D7FD     BRA 0x7132
+180:           
+181:               //Let the PIC drive the GCC data line
+182:               TRISBbits.TRISB2 = 0;
+7138  94C3     BCF 0xFC3, 2, ACCESS
+183:           
+184:               //Reset incoming data
+185:               SIBitCounter = 0;
+713A  0E00     MOVLW 0x0
+713C  6E3F     MOVWF SIBitCounter, ACCESS
+186:               SIByteCounter = 0;
+713E  0E00     MOVLW 0x0
+7140  6E3E     MOVWF SIByteCounter, ACCESS
+187:               SICMDReceived = 0;
+7142  0E00     MOVLW 0x0
+7144  6E3D     MOVWF SICMDReceived, ACCESS
+188:               SITempByte = 0x00;
+7146  0E00     MOVLW 0x0
+7148  6E3C     MOVWF SITempByte, ACCESS
+189:           
+190:               T2TMR = 0x01; //Will be reset by CLC
+714A  0E01     MOVLW 0x1
+714C  6EAA     MOVWF 0xFAA, ACCESS
+191:           
+192:               SPI1TWIDTH = 0x01; //Stop bit at the end of the message
+714E  0E01     MOVLW 0x1
+7150  6F18     MOVWF 0x18, BANKED
+193:               SPI1INTFbits.SRMTIF = 0;
+7152  9F1A     BCF 0x1A, 7, BANKED
+194:               SPI1TCNTL = len; //Message length in byte
+7156  F027     NOP
+7158  FD12     NOP
+195:           
+196:               if (len == 1) {
+715A  0409     DECF i, W, ACCESS
+715C  A4D8     BTFSS 0xFD8, 2, ACCESS
+715E  D00B     BRA 0x7176
+197:                   SPI1TXB = msg[0];
+7162  F01F     NOP
+7164  FFD9     NOP
+7168  F023     NOP
+716A  FFDA     NOP
+716C  50DF     MOVF 0xFDF, W, ACCESS
+716E  6F11     MOVWF minVal, BANKED
+198:                   SPI1TXB = 0x80; //Stop bit
+7170  0E80     MOVLW 0x80
+7172  6F11     MOVWF minVal, BANKED
+199:               } else {
+7174  D03F     BRA 0x71F4
+200:                   SPI1TXB = msg[0];
+7178  F01F     NOP
+717A  FFD9     NOP
+717E  F023     NOP
+7180  FFDA     NOP
+7182  50DF     MOVF 0xFDF, W, ACCESS
+7184  6F11     MOVWF minVal, BANKED
+201:                   SPI1TXB = msg[1];
+7186  EE20     LFSR 2, 0x1
+7188  F001     NOP
+718A  5007     MOVF p, W, ACCESS
+718C  26D9     ADDWF 0xFD9, F, ACCESS
+718E  5008     MOVF sxCh, W, ACCESS
+7190  22DA     ADDWFC 0xFDA, F, ACCESS
+7192  50DF     MOVF 0xFDF, W, ACCESS
+7194  6F11     MOVWF minVal, BANKED
+202:                   leftToSend = len - 2;
+7196  5009     MOVF i, W, ACCESS
+7198  0FFE     ADDLW 0xFE
+719A  6E10     MOVWF leftToSend, ACCESS
+203:                   idx = 2;
+719C  0E02     MOVLW 0x2
+719E  6E0F     MOVWF idx, ACCESS
+204:           
+205:                   while(leftToSend >= 0) {
+71A0  D027     BRA 0x71F0
+71F0  AE10     BTFSS leftToSend, 7, ACCESS
+71F2  D7D7     BRA 0x71A2
+206:                       if (SPI1TCNTL < (leftToSend + 2)) { //Check if we have to fill the FIFO
+71A4  F040     NOP
+71A6  F00A     NOP
+71A8  6A0B     CLRF i, ACCESS
+71AA  BE0A     BTFSC 0xA, 7, ACCESS
+71AC  060B     DECF i, F, ACCESS
+71AE  0E02     MOVLW 0x2
+71B0  260A     ADDWF 0xA, F, ACCESS
+71B2  0E00     MOVLW 0x0
+71B4  220B     ADDWFC i, F, ACCESS
+71B6  5112     MOVF maxVal, W, BANKED
+71B8  6E0C     MOVWF sign, ACCESS
+71BA  6A0D     CLRF quotient, ACCESS
+71BC  500A     MOVF 0xA, W, ACCESS
+71BE  5C0C     SUBWF sign, W, ACCESS
+71C0  500D     MOVF quotient, W, ACCESS
+71C2  0A80     XORLW 0x80
+71C4  6E0E     MOVWF 0xE, ACCESS
+71C6  500B     MOVF i, W, ACCESS
+71C8  0A80     XORLW 0x80
+71CA  580E     SUBWFB 0xE, W, ACCESS
+71CC  B0D8     BTFSC 0xFD8, 0, ACCESS
+71CE  D010     BRA 0x71F0
+207:                           if (leftToSend == 0) { //We are done sending the message. Send stop bit
+71D0  5010     MOVF leftToSend, W, ACCESS
+71D2  A4D8     BTFSS 0xFD8, 2, ACCESS
+71D4  D003     BRA 0x71DC
+208:                               SPI1TXB = 0x80; //Stop bit
+71D6  0E80     MOVLW 0x80
+71D8  6F11     MOVWF minVal, BANKED
+209:                           } else {
+71DA  D009     BRA 0x71EE
+210:                               SPI1TXB = msg[idx++];
+71DC  500F     MOVF idx, W, ACCESS
+71DE  2407     ADDWF p, W, ACCESS
+71E0  6ED9     MOVWF 0xFD9, ACCESS
+71E2  0E00     MOVLW 0x0
+71E4  2008     ADDWFC sxCh, W, ACCESS
+71E6  6EDA     MOVWF 0xFDA, ACCESS
+71E8  50DF     MOVF 0xFDF, W, ACCESS
+71EA  6F11     MOVWF minVal, BANKED
+71EC  2A0F     INCF idx, F, ACCESS
+211:                           }
+212:                           leftToSend--;
+71EE  0610     DECF leftToSend, F, ACCESS
+213:                       }
+214:                   }
+215:               }
+216:           
+217:               while (SPI1INTFbits.SRMTIF == 0);
+71F4  AF1A     BTFSS 0x1A, 7, BANKED
+71F6  D7FE     BRA 0x71F4
+218:               while (!SPI1STATUSbits.TXBE);
+71F8  AB17     BTFSS 0x17, 5, BANKED
+71FA  D7FE     BRA 0x71F8
+219:               SPI1INTFbits.SRMTIF = 0;
+71FC  9F1A     BCF 0x1A, 7, BANKED
+220:           
+221:               //Release the GCC data line
+222:               SMT1CON1bits.GO = 1;
+71FE  013F     MOVLB 0x3F
+7200  8F1F     BSF 0x1F, 7, BANKED
+223:               TRISBbits.TRISB2 = 1;
+7202  84C3     BSF 0xFC3, 2, ACCESS
+224:           
+225:               //T6TMR = 0x00;
+226:               //T6CON = 0x80;
+227:               //PIR9bits.TMR6IF = 0;
+228:               //PIE9bits.TMR6IE = 1;
+229:           }
+7204  0012     RETURN 0
+230:           
+231:           uint8_t SIGetCommand(uint8_t* msg) {
+232:               uint8_t i;
+233:               if (!SICMDReceived) {
+6B32  503D     MOVF SICMDReceived, W, ACCESS
+6B34  A4D8     BTFSS 0xFD8, 2, ACCESS
+6B36  D002     BRA 0x6B3C
+234:                   return 0;
+6B38  0E00     MOVLW 0x0
+6B3A  0012     RETURN 0
+235:               }
+236:               for (i = 0; i < SIByteCounter; i++) {
+6B3C  0E00     MOVLW 0x0
+6B3E  6E03     MOVWF cyCh, ACCESS
+6B40  D010     BRA 0x6B62
+6B60  2A03     INCF cyCh, F, ACCESS
+6B62  503E     MOVF SIByteCounter, W, ACCESS
+6B64  5C03     SUBWF cyCh, W, ACCESS
+6B66  A0D8     BTFSS 0xFD8, 0, ACCESS
+6B68  D7EC     BRA 0x6B42
+237:                   msg[i] = SIInputMessage[i];
+6B42  0E00     MOVLW 0x0
+6B44  2403     ADDWF cyCh, W, ACCESS
+6B46  6ED9     MOVWF 0xFD9, ACCESS
+6B48  6ADA     CLRF 0xFDA, ACCESS
+6B4A  0E01     MOVLW 0x1
+6B4C  22DA     ADDWFC 0xFDA, F, ACCESS
+6B4E  5003     MOVF cyCh, W, ACCESS
+6B50  2401     ADDWF __pcstackCOMRAM, W, ACCESS
+6B52  6EE1     MOVWF 0xFE1, ACCESS
+6B54  0E00     MOVLW 0x0
+6B56  2002     ADDWFC cxCh, W, ACCESS
+6B58  6EE2     MOVWF 0xFE2, ACCESS
+6B5C  FF7F     NOP
+6B5E  FFE7     NOP
+238:               }
+239:           
+240:               return SIByteCounter;
+6B6A  503E     MOVF SIByteCounter, W, ACCESS
+241:           }
+6B6C  0012     RETURN 0
+242:           
+243:           uint8_t SIGetCommandCode(uint8_t* msg) {
+244:               uint8_t i;
+245:               if (SIByteCounter) {
+246:                   return 0;
+247:               }
+248:               *msg = SIInputMessage[0];
+249:           
+250:               return 1;
+251:           }
+252:           
+253:           uint8_t SICommadReceived(void) {
+254:               return SICMDReceived;
+255:           }
+256:           
+257:           void SIClear(void) {
+258:               //Reset incoming data
+259:               SIBitCounter = 0;
+6912  0E00     MOVLW 0x0
+6914  6E3F     MOVWF SIBitCounter, ACCESS
+260:               SIByteCounter = 0;
+6916  0E00     MOVLW 0x0
+6918  6E3E     MOVWF SIByteCounter, ACCESS
+261:               SICMDReceived = 0;
+691A  0E00     MOVLW 0x0
+691C  6E3D     MOVWF SICMDReceived, ACCESS
+262:               SITempByte = 0x00;
+691E  0E00     MOVLW 0x0
+6920  6E3C     MOVWF SITempByte, ACCESS
+263:           }
+6922  0012     RETURN 0
+---  /Users/aurelio/Programmazione/gcplus2-0/GCPlus2.0.X/rumble.c  --------------------------------------
+1:             #include "main.h"
+2:             
+3:             void rumbleInit(void) {
+4:                 T4CON = 0x00;
+6A2C  0E00     MOVLW 0x0
+6A2E  6EA0     MOVWF 0xFA0, ACCESS
+5:                 T4CLKCON = 0x01; //FOSC/4 (16MHz)
+6A30  0E01     MOVLW 0x1
+6A32  6EA2     MOVWF 0xFA2, ACCESS
+6:                 T4HLT = 0x00; //Software gate control
+6A34  0E00     MOVLW 0x0
+6A36  6EA1     MOVWF 0xFA1, ACCESS
+7:                 T4PR = 0xFF; //62.5 kHz, 8bit resolution
+6A38  689F     SETF 0xF9F, ACCESS
+8:                 T4TMR = 0x00;
+6A3A  0E00     MOVLW 0x0
+6A3C  6E9E     MOVWF 0xF9E, ACCESS
+9:                 T4CON = 0x80;
+6A3E  0E80     MOVLW 0x80
+6A40  6EA0     MOVWF 0xFA0, ACCESS
+10:            
+11:                CCPTMRS0bits.C1TSEL = 2; //Timer4 to CCP1
+6A42  013F     MOVLB 0x3F
+6A44  515E     MOVF 0x5E, W, BANKED
+6A46  0BFC     ANDLW 0xFC
+6A48  0902     IORLW 0x2
+6A4A  6F5E     MOVWF 0x5E, BANKED
+12:                CCPR1L = 0x00;
+6A4C  0E00     MOVLW 0x0
+6A4E  6E7C     MOVWF 0xF7C, ACCESS
+13:                CCPR1H = 0x80; //50% => 0V
+6A50  0E80     MOVLW 0x80
+6A52  6E7D     MOVWF 0xF7D, ACCESS
+14:                CCP1CON = 0x9C; //Enabled. Left-aligned PWM
+6A54  0E9C     MOVLW 0x9C
+6A56  6E7E     MOVWF 0xF7E, ACCESS
+15:            }
+6A58  0012     RETURN 0
+16:            
+17:            void rumbleSpin(uint8_t speed) {
+68E8  6E01     MOVWF __pcstackCOMRAM, ACCESS
+18:                LATB4 = 1; //Enable DRV2603
+68EA  88BB     BSF 0xFBB, 4, ACCESS
+19:                CCPR1H = speed;
+68EE  F007     NOP
+68F0  FF7D     NOP
+20:            }
+68F2  0012     RETURN 0
+21:            
+22:            void rumbleBrake(void) {
+23:                LATB4 = 1; //Enable DRV2603
+68D8  88BB     BSF 0xFBB, 4, ACCESS
+24:                CCPR1H = 0x60;
+68DA  0E60     MOVLW 0x60
+68DC  6E7D     MOVWF 0xF7D, ACCESS
+25:            }
+68DE  0012     RETURN 0
+26:            
+27:            void rumbleStop(void) {
+28:                LATB4 = 0; //Disable DRV2603
+68E0  98BB     BCF 0xFBB, 4, ACCESS
+29:                CCPR1H = 0x80;
+68E2  0E80     MOVLW 0x80
+68E4  6E7D     MOVWF 0xF7D, ACCESS
+30:            }
+68E6  0012     RETURN 0
+---  /Users/aurelio/Programmazione/gcplus2-0/GCPlus2.0.X/nvm.c  -----------------------------------------
+1:             #include "main.h"
+2:             
+3:             void NVMUnlock(void) {
+4:                 INTCON0bits.GIE = 0;
+6900  9ED2     BCF 0xFD2, 7, ACCESS
+5:                 NVMCON2 = 0x55;
+6902  0E55     MOVLW 0x55
+6904  0139     MOVLB 0x39
+6906  6FE6     MOVWF addr, BANKED
+6:                 NVMCON2 = 0xAA;
+6908  0EAA     MOVLW 0xAA
+690A  6FE6     MOVWF addr, BANKED
+7:                 NVMCON1bits.WR = 1;
+690C  83E5     BSF 0xE5, 1, BANKED
+8:                 INTCON0bits.GIE = 1;
+690E  8ED2     BSF 0xFD2, 7, ACCESS
+9:             }
+6910  0012     RETURN 0
+10:            
+11:            void PGMEraseRow(uint16_t addr) {
+12:                if (addr & 63)
+6AF8  0E3F     MOVLW 0x3F
+6AFA  1401     ANDWF __pcstackCOMRAM, W, ACCESS
+6AFC  6E03     MOVWF cyCh, ACCESS
+6AFE  0E00     MOVLW 0x0
+6B00  1402     ANDWF cxCh, W, ACCESS
+6B02  6E04     MOVWF i, ACCESS
+6B04  5003     MOVF cyCh, W, ACCESS
+6B06  1004     IORWF i, W, ACCESS
+6B08  A4D8     BTFSS 0xFD8, 2, ACCESS
+6B0A  0012     RETURN 0
+13:                    return;
+14:            
+15:                NVMCON1 = 0;
+6B0C  0E00     MOVLW 0x0
+6B0E  0139     MOVLB 0x39
+6B10  6FE5     MOVWF 0xE5, BANKED
+16:                TBLPTRU = 0;
+6B12  0E00     MOVLW 0x0
+6B14  6EF8     MOVWF 0xFF8, ACCESS
+17:                TBLPTRH = (addr >> 8) & 0xFF;
+6B16  5002     MOVF cxCh, W, ACCESS
+6B18  6EF7     MOVWF 0xFF7, ACCESS
+18:                TBLPTRL = addr & 0xFF;
+6B1C  F007     NOP
+6B1E  FFF6     NOP
+19:                NVMCON1bits.REG0 = 0;
+6B20  9DE5     BCF 0xE5, 6, BANKED
+20:                NVMCON1bits.REG1 = 1;
+6B22  8FE5     BSF 0xE5, 7, BANKED
+21:                NVMCON1bits.WREN = 1;
+6B24  85E5     BSF 0xE5, 2, BANKED
+22:                NVMCON1bits.FREE = 1;
+6B26  89E5     BSF 0xE5, 4, BANKED
+23:                NVMUnlock();
+6B28  EC80     CALL 0x6900, 0
+6B2A  F034     NOP
+24:                NVMCON1bits.WREN = 0;
+6B2C  0139     MOVLB 0x39
+6B2E  95E5     BCF 0xE5, 2, BANKED
+25:            }
+6B30  0012     RETURN 0
+26:            
+27:            void PGMWriteBlock(uint16_t addr, uint8_t* data) {
+28:                if (addr & 63)
+6E18  0E3F     MOVLW 0x3F
+6E1A  1401     ANDWF __pcstackCOMRAM, W, ACCESS
+6E1C  6E05     MOVWF i, ACCESS
+6E1E  0E00     MOVLW 0x0
+6E20  1402     ANDWF cxCh, W, ACCESS
+6E22  6E06     MOVWF la, ACCESS
+6E24  5005     MOVF i, W, ACCESS
+6E26  1006     IORWF la, W, ACCESS
+6E28  A4D8     BTFSS 0xFD8, 2, ACCESS
+6E2A  0012     RETURN 0
+29:                    return;
+30:                if (addr < (PAYLOAD_ADDR << 1) || (addr + 64) > 0x8000)
+6E2C  0E40     MOVLW 0x40
+6E2E  5C02     SUBWF cxCh, W, ACCESS
+6E30  A0D8     BTFSS 0xFD8, 0, ACCESS
+6E32  0012     RETURN 0
+6E34  0E40     MOVLW 0x40
+6E36  2401     ADDWF __pcstackCOMRAM, W, ACCESS
+6E38  6E05     MOVWF i, ACCESS
+6E3A  0E00     MOVLW 0x0
+6E3C  2002     ADDWFC cxCh, W, ACCESS
+6E3E  6E06     MOVWF la, ACCESS
+6E40  0405     DECF i, W, ACCESS
+6E42  0E80     MOVLW 0x80
+6E44  5806     SUBWFB la, W, ACCESS
+6E46  B0D8     BTFSC 0xFD8, 0, ACCESS
+6E48  0012     RETURN 0
+31:                    return;
+32:            
+33:                uint16_t i;
+34:            
+35:                NVMCON1 = 0;
+6E4A  0E00     MOVLW 0x0
+6E4C  0139     MOVLB 0x39
+6E4E  6FE5     MOVWF 0xE5, BANKED
+36:            
+37:                //Load address
+38:                TBLPTRU = 0;
+6E50  0E00     MOVLW 0x0
+6E52  6EF8     MOVWF 0xFF8, ACCESS
+39:                TBLPTRH = (addr >> 8) & 0xFF;
+6E54  5002     MOVF cxCh, W, ACCESS
+6E56  6EF7     MOVWF 0xFF7, ACCESS
+40:                TBLPTRL = addr & 0xFF;
+6E5A  F007     NOP
+6E5C  FFF6     NOP
+41:            
+42:                //Copy block to the latches
+43:                asm("tblrd*-");
+6E5E  000A     TBLRD*-
+44:                for (i = 0; i < 64; i++) {
+6E60  0E00     MOVLW 0x0
+6E62  6E08     MOVWF sxCh, ACCESS
+6E64  0E00     MOVLW 0x0
+6E66  6E07     MOVWF p, ACCESS
+6E7A  4A07     INFSNZ p, F, ACCESS
+6E7C  2A08     INCF sxCh, F, ACCESS
+6E7E  5008     MOVF sxCh, W, ACCESS
+6E80  E104     BNZ 0x6E8A
+6E82  0E40     MOVLW 0x40
+6E84  5C07     SUBWF p, W, ACCESS
+6E86  A0D8     BTFSS 0xFD8, 0, ACCESS
+6E88  D7EF     BRA 0x6E68
+45:                    TABLAT = data[i];
+6E68  5007     MOVF p, W, ACCESS
+6E6A  2403     ADDWF cyCh, W, ACCESS
+6E6C  6ED9     MOVWF 0xFD9, ACCESS
+6E6E  5008     MOVF sxCh, W, ACCESS
+6E70  2004     ADDWFC i, W, ACCESS
+6E72  6EDA     MOVWF 0xFDA, ACCESS
+6E74  50DF     MOVF 0xFDF, W, ACCESS
+6E76  6EF5     MOVWF 0xFF5, ACCESS
+46:                    asm("tblwt+*");
+6E78  000F     TBLWT+*
+47:                }
+48:                //Write block
+49:                NVMCON1bits.REG0 = 0;
+6E8A  0139     MOVLB 0x39
+6E8C  9DE5     BCF 0xE5, 6, BANKED
+50:                NVMCON1bits.REG1 = 1;
+6E8E  8FE5     BSF 0xE5, 7, BANKED
+51:                NVMCON1bits.WREN = 1;
+6E90  85E5     BSF 0xE5, 2, BANKED
+52:                NVMCON1bits.FREE = 0;
+6E92  99E5     BCF 0xE5, 4, BANKED
+53:            
+54:                NVMUnlock();
+6E94  EC80     CALL 0x6900, 0
+6E96  F034     NOP
+55:            
+56:                NVMCON1bits.WREN = 0;
+6E98  0139     MOVLB 0x39
+6E9A  95E5     BCF 0xE5, 2, BANKED
+57:            }
+6E9C  0012     RETURN 0
+58:            
+59:            void PGMReadBlock(uint16_t addr, uint8_t* data) {
+60:                if (addr & 63)
+6C30  0E3F     MOVLW 0x3F
+6C32  1401     ANDWF __pcstackCOMRAM, W, ACCESS
+6C34  6E05     MOVWF i, ACCESS
+6C36  0E00     MOVLW 0x0
+6C38  1402     ANDWF cxCh, W, ACCESS
+6C3A  6E06     MOVWF la, ACCESS
+6C3C  5005     MOVF i, W, ACCESS
+6C3E  1006     IORWF la, W, ACCESS
+6C40  A4D8     BTFSS 0xFD8, 2, ACCESS
+6C42  0012     RETURN 0
+61:                    return;
+62:                if (addr < (PAYLOAD_ADDR << 1) || (addr + 64) > 0x8000)
+6C44  0E40     MOVLW 0x40
+6C46  5C02     SUBWF cxCh, W, ACCESS
+6C48  A0D8     BTFSS 0xFD8, 0, ACCESS
+6C4A  0012     RETURN 0
+6C4C  0E40     MOVLW 0x40
+6C4E  2401     ADDWF __pcstackCOMRAM, W, ACCESS
+6C50  6E05     MOVWF i, ACCESS
+6C52  0E00     MOVLW 0x0
+6C54  2002     ADDWFC cxCh, W, ACCESS
+6C56  6E06     MOVWF la, ACCESS
+6C58  0405     DECF i, W, ACCESS
+6C5A  0E80     MOVLW 0x80
+6C5C  5806     SUBWFB la, W, ACCESS
+6C5E  B0D8     BTFSC 0xFD8, 0, ACCESS
+6C60  0012     RETURN 0
+63:                    return;
+64:            
+65:                uint16_t i;
+66:            
+67:                //Load address
+68:                TBLPTRU = 0;
+6C62  0E00     MOVLW 0x0
+6C64  6EF8     MOVWF 0xFF8, ACCESS
+69:                TBLPTRH = (addr >> 8) & 0xFF;
+6C66  5002     MOVF cxCh, W, ACCESS
+6C68  6EF7     MOVWF 0xFF7, ACCESS
+70:                TBLPTRL = addr & 0xFF;
+6C6C  F007     NOP
+6C6E  FFF6     NOP
+71:            
+72:                //Select PGM
+73:                NVMCON1bits.REG0 = 0;
+6C70  0139     MOVLB 0x39
+6C72  9DE5     BCF 0xE5, 6, BANKED
+74:                NVMCON1bits.REG1 = 1;
+6C74  8FE5     BSF 0xE5, 7, BANKED
+75:            
+76:                //Read block from the latches
+77:                for (i = 0; i < 64; i++) {
+6C76  0E00     MOVLW 0x0
+6C78  6E08     MOVWF sxCh, ACCESS
+6C7A  0E00     MOVLW 0x0
+6C7C  6E07     MOVWF p, ACCESS
+6C92  4A07     INFSNZ p, F, ACCESS
+6C94  2A08     INCF sxCh, F, ACCESS
+6C96  5008     MOVF sxCh, W, ACCESS
+6C98  E105     BNZ 0x6CA4
+6C9A  0E40     MOVLW 0x40
+6C9C  5C07     SUBWF p, W, ACCESS
+6C9E  B0D8     BTFSC 0xFD8, 0, ACCESS
+6CA0  0012     RETURN 0
+6CA2  D7ED     BRA 0x6C7E
+78:                    asm("tblrd*+");
+6C7E  0009     TBLRD*+
+79:                    data[i] = TABLAT;
+6C80  5007     MOVF p, W, ACCESS
+6C82  2403     ADDWF cyCh, W, ACCESS
+6C84  6ED9     MOVWF 0xFD9, ACCESS
+6C86  5008     MOVF sxCh, W, ACCESS
+6C88  2004     ADDWFC i, W, ACCESS
+6C8A  6EDA     MOVWF 0xFDA, ACCESS
+6C8E  FFD7     NOP
+6C90  FFDF     NOP
+80:                }
+81:            }
+6CA4  0012     RETURN 0
+82:            
+83:            uint8_t EEPROMReadByte(uint8_t address) {
+6924  6E01     MOVWF __pcstackCOMRAM, ACCESS
+84:                NVMCON1 = 0;
+6926  0E00     MOVLW 0x0
+6928  0139     MOVLB 0x39
+692A  6FE5     MOVWF 0xE5, BANKED
+85:                NVMADRL = address;
+692E  F007     NOP
+6930  F9E0     NOP
+86:                NVMCON1bits.RD = 1;
+6932  81E5     BSF 0xE5, 0, BANKED
+87:                return NVMDAT;
+6934  51E3     MOVF 0xE3, W, BANKED
+88:            }
+6936  0012     RETURN 0
+89:            
+90:            void EEPROMWriteByte(uint8_t address, uint8_t data) {
+6956  6E02     MOVWF cxCh, ACCESS
+91:                NVMCON1 = 0;
+6958  0E00     MOVLW 0x0
+695A  0139     MOVLB 0x39
+695C  6FE5     MOVWF 0xE5, BANKED
+92:                NVMADRL = address;
+6960  F00B     NOP
+6962  F9E0     NOP
+93:                NVMDAT = data;
+6966  F007     NOP
+6968  F9E3     NOP
+94:                NVMCON1bits.WREN = 1;
+696A  85E5     BSF 0xE5, 2, BANKED
+95:                NVMUnlock();
+696C  EC80     CALL 0x6900, 0
+696E  F034     NOP
+96:                while (NVMCON1bits.WR);
+6970  0139     MOVLB 0x39
+6972  B3E5     BTFSC 0xE5, 1, BANKED
+6974  D7FD     BRA 0x6970
+97:                NVMCON1bits.WREN = 0;
+6976  95E5     BCF 0xE5, 2, BANKED
+98:            }
+6978  0012     RETURN 0
+---  /Users/aurelio/Programmazione/gcplus2-0/GCPlus2.0.X/main.c  ----------------------------------------
+1:             // CONFIG1L
+2:             #pragma config FEXTOSC = OFF    // External Oscillator Selection (Oscillator not enabled)
+3:             #pragma config RSTOSC = HFINTOSC_64MHZ// Reset Oscillator Selection (HFINTOSC with HFFRQ = 64 MHz and CDIV = 1:1)
+4:             
+5:             // CONFIG1H
+6:             #pragma config CLKOUTEN = OFF   // Clock out Enable bit (CLKOUT function is disabled)
+7:             #pragma config PR1WAY = OFF     // PRLOCKED One-Way Set Enable bit (PRLOCK bit can be set and cleared repeatedly)
+8:             #pragma config CSWEN = ON       // Clock Switch Enable bit (Writing to NOSC and NDIV is allowed)
+9:             #pragma config FCMEN = ON       // Fail-Safe Clock Monitor Enable bit (Fail-Safe Clock Monitor enabled)
+10:            
+11:            // CONFIG2L
+12:            #pragma config MCLRE = EXTMCLR  // MCLR Enable bit (If LVP = 0, MCLR pin is MCLR; If LVP = 1, RE3 pin function is MCLR )
+13:            #pragma config PWRTS = PWRT_OFF // Power-up timer selection bits (PWRT is disabled)
+14:            #pragma config MVECEN = OFF     // Multi-vector enable bit (Interrupt contoller does not use vector table to prioritze interrupts)
+15:            #pragma config IVT1WAY = OFF    // IVTLOCK bit One-way set enable bit (IVTLOCK bit can be cleared and set repeatedly)
+16:            #pragma config LPBOREN = OFF    // Low Power BOR Enable bit (ULPBOR disabled)
+17:            #pragma config BOREN = SBORDIS  // Brown-out Reset Enable bits (Brown-out Reset enabled , SBOREN bit is ignored)
+18:            
+19:            // CONFIG2H
+20:            #pragma config BORV = VBOR_2P45 // Brown-out Reset Voltage Selection bits (Brown-out Reset Voltage (VBOR) set to 2.45V)
+21:            #pragma config ZCD = OFF        // ZCD Disable bit (ZCD disabled. ZCD can be enabled by setting the ZCDSEN bit of ZCDCON)
+22:            #pragma config PPS1WAY = OFF    // PPSLOCK bit One-Way Set Enable bit (PPSLOCK bit can be set and cleared repeatedly (subject to the unlock sequence))
+23:            #pragma config STVREN = ON      // Stack Full/Underflow Reset Enable bit (Stack full/underflow will cause Reset)
+24:            #pragma config DEBUG = OFF      // Debugger Enable bit (Background debugger disabled)
+25:            #pragma config XINST = OFF      // Extended Instruction Set Enable bit (Extended Instruction Set and Indexed Addressing Mode disabled)
+26:            
+27:            // CONFIG3L
+28:            #pragma config WDTCPS = WDTCPS_12// WDT Period selection bits (Divider ratio 1:131072)
+29:            #pragma config WDTE = ON        // WDT operating mode (WDT enabled regardless of sleep)
+30:            
+31:            // CONFIG3H
+32:            #pragma config WDTCWS = WDTCWS_7// WDT Window Select bits (window always open (100%); software control; keyed access not required)
+33:            #pragma config WDTCCS = LFINTOSC// WDT input clock selector (WDT reference clock is the 31.0 kHz LFINTOSC)
+34:            
+35:            // CONFIG4L
+36:            #pragma config BBSIZE = BBSIZE_4096// Boot Block Size selection bits (Boot Block size is 4096 words)
+37:            #pragma config BBEN = ON        // Boot Block enable bit (Boot block enabled)
+38:            #pragma config SAFEN = ON       // Storage Area Flash enable bit (SAF enabled)
+39:            #pragma config WRTAPP = OFF     // Application Block write protection bit (Application Block not write protected)
+40:            
+41:            // CONFIG4H
+42:            #pragma config WRTB = ON        // Configuration Register Write Protection bit (Configuration registers (300000-30000Bh) write-protected)
+43:            #pragma config WRTC = ON        // Boot Block Write Protection bit (Boot Block (000000-0007FFh) write-protected)
+44:            #pragma config WRTD = OFF       // Data EEPROM Write Protection bit (Data EEPROM not write-protected)
+45:            #pragma config WRTSAF = OFF     // SAF Write protection bit (SAF not Write Protected)
+46:            #pragma config LVP = ON         // Low Voltage Programming Enable bit (Low voltage programming enabled. MCLR/VPP pin function is MCLR. MCLRE configuration bit is ignored)
+47:            
+48:            // CONFIG5L
+49:            #pragma config CP = ON          // PFM and Data EEPROM Code Protection bit (PFM and Data EEPROM code protection enabled)
+50:            
+51:            #include "main.h"
+52:            
+53:            void main(void) {
+54:                uint8_t i;
+55:                uint8_t cmdLen = 0;
+56:                char cmd[0x20];
+57:                char msgAnswer[0x20];
+58:                uint8_t gcpLocked = 1;
+7AEE  0E01     MOVLW 0x1
+7AF0  0100     MOVLB 0x0
+7AF2  6FEC     MOVWF gcpLocked, BANKED
+59:            
+60:                //Bootloader buffer stuff
+61:                uint8_t flashBuffer[64];
+62:                uint8_t flashBufferIdx;
+63:            
+64:                /*//Clock is already be set at 64MHz in the configuration register. This is useless
+65:                // NOSC HFINTOSC; NDIV 1;
+66:                OSCCON1 = 0x60;
+67:                // CSWHOLD may proceed; SOSCPWR Low power;
+68:                OSCCON3 = 0x00;
+69:                // MFOEN disabled; LFOEN disabled; ADOEN disabled; SOSCEN disabled; EXTOEN disabled; HFOEN disabled;
+70:                OSCEN = 0x00;
+71:                // HFFRQ 64_MHz;
+72:                OSCFRQ = 0x08;
+73:                // TUN 0;
+74:                OSCTUNE = 0x00;*/
+75:            
+76:                portsInit();
+7AF4  ECE3     CALL 0x6BC6, 0
+7AF6  F035     NOP
+77:            
+78:                //Read buttons for boot combos
+79:                inButtons_t inBut;
+80:                inBut.PORTA = PORTA;
+7AFA  FF28     NOP
+7AFC  F0ED     NOP
+81:                inBut.PORTB = PORTB;
+7B00  FF2C     NOP
+7B02  F0EE     NOP
+82:                inBut.PORTC = PORTC;
+7B06  FF30     NOP
+7B08  F0EF     NOP
+83:            
+84:                //Check if a payload is actually present
+85:                PGMReadBlock(PAYLOAD_ADDR, flashBuffer);
+7B0A  0E20     MOVLW 0x20
+7B0C  6E02     MOVWF cxCh, ACCESS
+7B0E  0E00     MOVLW 0x0
+7B10  6E01     MOVWF __pcstackCOMRAM, ACCESS
+7B12  0E60     MOVLW 0x60
+7B14  6E03     MOVWF cyCh, ACCESS
+7B16  0E00     MOVLW 0x0
+7B18  6E04     MOVWF i, ACCESS
+7B1A  EC18     CALL 0x6C30, 0
+7B1C  F036     NOP
+86:                if ((flashBuffer[0] == 0x47) && (flashBuffer[1] == 0x43) && (flashBuffer[2] == 0x2B) && (flashBuffer[3] == 0x32)) {
+7B1E  0E47     MOVLW 0x47
+7B20  0100     MOVLB 0x0
+7B22  1960     XORWF __pcstackBANK0, W, BANKED
+7B24  A4D8     BTFSS 0xFD8, 2, ACCESS
+7B26  D012     BRA 0x7B4C
+7B28  0E43     MOVLW 0x43
+7B2A  1961     XORWF 0x61, W, BANKED
+7B2C  A4D8     BTFSS 0xFD8, 2, ACCESS
+7B2E  D00E     BRA 0x7B4C
+7B30  0E2B     MOVLW 0x2B
+7B32  1962     XORWF 0x62, W, BANKED
+7B34  A4D8     BTFSS 0xFD8, 2, ACCESS
+7B36  D00A     BRA 0x7B4C
+7B38  0E32     MOVLW 0x32
+7B3A  1963     XORWF 0x63, W, BANKED
+7B3C  A4D8     BTFSS 0xFD8, 2, ACCESS
+7B3E  D006     BRA 0x7B4C
+87:                    //Boot to main payload unless X+Y+Z are all pressed
+88:                    if (inBut.X || inBut.Y || inBut.Z) {
+7B40  AFED     BTFSS inBut, 7, BANKED
+7B42  BDED     BTFSC inBut, 6, BANKED
+7B44  D001     BRA 0x7B48
+7B46  B1EF     BTFSC 0xEF, 0, BANKED
+89:                        bootPayload();
+7B48  EC9C     CALL 0x6938, 0
+7B4A  F034     NOP
+90:                    }
+91:                }
+92:            
+93:                configInit();
+7B4C  ECB7     CALL 0x6B6E, 0
+7B4E  F035     NOP
+94:                ADCInit(config.SXChan, config.SYChan, config.CXChan, config.CYChan);
+7B52  F4BC     NOP
+7B54  F001     NOP
+7B58  F4C0     NOP
+7B5A  F002     NOP
+7B5E  F4C4     NOP
+7B60  F003     NOP
+7B62  0101     MOVLB 0x1
+7B64  512E     MOVF 0x2E, W, BANKED
+7B66  EC14     CALL 0x7628, 0
+7B68  F03B     NOP
+95:                buttonsInit();
+7B6A  ECCB     CALL 0x6D96, 0
+7B6C  F036     NOP
+96:                SIInit();
+7B6E  EC93     CALL 0x6F26, 0
+7B70  F037     NOP
+97:                rumbleInit();
+7B72  EC16     CALL 0x6A2C, 0
+7B74  F035     NOP
+98:            
+99:                //Restore configuration if X+Y+A are all pressed
+100:               if (!inBut.X && !inBut.Y && !inBut.A) {
+7B76  0100     MOVLB 0x0
+7B78  AFED     BTFSS inBut, 7, BANKED
+7B7A  BDED     BTFSC inBut, 6, BANKED
+7B7C  D006     BRA 0x7B8A
+7B7E  B9ED     BTFSC inBut, 4, BANKED
+7B80  D004     BRA 0x7B8A
+101:                   configSetDefault();
+7B82  EC53     CALL 0x6CA6, 0
+7B84  F036     NOP
+102:                   configFlashAll();
+7B86  ECE9     CALL 0x69D2, 0
+7B88  F034     NOP
+103:               }
+104:           
+105:               buttonsBuildLUTs();
+7B8A  EC2E     CALL 0x705C, 0
+7B8C  F038     NOP
+106:           
+107:               INTCON0 = 0x80; //Interrupts enabled with no priority
+7B8E  0E80     MOVLW 0x80
+7B90  6ED2     MOVWF 0xFD2, ACCESS
+108:           
+109:               while (1) {
+110:                   inBut.PORTA = PORTA;
+7B94  FF28     NOP
+7B96  F0ED     NOP
+111:                   inBut.PORTB = PORTB;
+7B9A  FF2C     NOP
+7B9C  F0EE     NOP
+112:                   inBut.PORTC = PORTC;
+7BA0  FF30     NOP
+7BA2  F0EF     NOP
+113:                   //If X+Y+Start are all pressed, don't reset the WDT
+114:                   if (inBut.X || inBut.Y || inBut.ST) {
+7BA4  0100     MOVLB 0x0
+7BA6  AFED     BTFSS inBut, 7, BANKED
+7BA8  BDED     BTFSC inBut, 6, BANKED
+7BAA  D001     BRA 0x7BAE
+7BAC  B3EF     BTFSC 0xEF, 1, BANKED
+115:                       asm("clrwdt");
+7BAE  0004     CLRWDT
+116:                   }
+117:                   buttonsUpdate();
+7BB0  ECF0     CALL 0x77E0, 0
+7BB2  F03B     NOP
+118:                   cmdLen = SIGetCommand(cmd);
+7BB4  0EA0     MOVLW 0xA0
+7BB6  6E01     MOVWF __pcstackCOMRAM, ACCESS
+7BB8  0E00     MOVLW 0x0
+7BBA  6E02     MOVWF cxCh, ACCESS
+7BBC  EC99     CALL 0x6B32, 0
+7BBE  F035     NOP
+7BC0  0100     MOVLB 0x0
+7BC2  6FEA     MOVWF cmdLen, BANKED
+119:           
+120:                   if (cmdLen > 0) {
+7BC4  51EA     MOVF cmdLen, W, BANKED
+7BC6  A4D8     BTFSS 0xFD8, 2, ACCESS
+7BC8  D1D8     BRA 0x7F7A
+7BCA  D7E3     BRA 0x7B92
+121:                       switch(cmd[0]) {
+7F7A  51A0     MOVF cmd, W, BANKED
+122:                           case SI_CMD_ID:
+123:                           case SI_CMD_RESET:
+124:                               msgAnswer[0] = 0x09;
+7BCC  0E09     MOVLW 0x9
+7BCE  6FC6     MOVWF msgAnswer, BANKED
+125:                               msgAnswer[1] = 0x00;
+7BD0  0E00     MOVLW 0x0
+7BD2  6FC7     MOVWF 0xC7, BANKED
+126:                               msgAnswer[2] = 0x03;
+7BD4  0E03     MOVLW 0x3
+7BD6  6FC8     MOVWF 0xC8, BANKED
+127:                               SISendMessage(msgAnswer, 3);
+7BD8  0EC6     MOVLW 0xC6
+7BDA  6E07     MOVWF p, ACCESS
+7BDC  0E00     MOVLW 0x0
+7BDE  6E08     MOVWF sxCh, ACCESS
+7BE0  0E03     MOVLW 0x3
+7BE2  6E09     MOVWF i, ACCESS
+7BE4  EC97     CALL 0x712E, 0
+7BE6  F038     NOP
+128:                           break;
+7BE8  D7D4     BRA 0x7B92
+129:           
+130:                           case SI_CMD_POLL:
+131:                               //Handle rumble
+132:                               switch (cmd[2]) {
+7C00  51A2     MOVF 0xA2, W, BANKED
+7C02  0A01     XORLW 0x1
+7C04  B4D8     BTFSC 0xFD8, 2, ACCESS
+7C06  D7F1     BRA 0x7BEA
+7C08  0A03     XORLW 0x3
+7C0A  B4D8     BTFSC 0xFD8, 2, ACCESS
+7C0C  D7F3     BRA 0x7BF4
+7C0E  D7F5     BRA 0x7BFA
+133:                                   case 1:
+134:                                       rumbleSpin(config.rumbleIntensity);
+7BEA  0101     MOVLB 0x1
+7BEC  5136     MOVF 0x36, W, BANKED
+7BEE  EC74     CALL 0x68E8, 0
+7BF0  F034     NOP
+135:                                   break;
+7BF2  D00E     BRA 0x7C10
+136:           
+137:                                   case 2:
+138:                                       rumbleBrake();
+7BF4  EC6C     CALL 0x68D8, 0
+7BF6  F034     NOP
+139:                                   break;
+7BF8  D00B     BRA 0x7C10
+140:           
+141:                                   default:
+142:                                       rumbleStop();
+7BFA  EC70     CALL 0x68E0, 0
+7BFC  F034     NOP
+143:                                   break;
+7BFE  D008     BRA 0x7C10
+144:                               }
+145:                               //Answer
+146:                               SISendMessage(buttonsGetMessage(cmd[1], config.triggersMode), 8);
+7C12  F4DC     NOP
+7C14  F001     NOP
+7C16  0100     MOVLB 0x0
+7C18  51A1     MOVF 0xA1, W, BANKED
+7C1A  EC74     CALL 0x72E8, 0
+7C1C  F039     NOP
+7C20  F004     NOP
+7C22  F007     NOP
+7C26  F008     NOP
+7C28  F008     NOP
+7C2A  0E08     MOVLW 0x8
+7C2C  6E09     MOVWF i, ACCESS
+7C2E  EC97     CALL 0x712E, 0
+7C30  F038     NOP
+147:                           break;
+7C32  D7AF     BRA 0x7B92
+148:           
+149:                           case SI_CMD_ORIGINS:
+150:                           case SI_CMD_CALIB:
+151:                               msgAnswer[0] = 0x00;
+7C34  0E00     MOVLW 0x0
+7C36  6FC6     MOVWF msgAnswer, BANKED
+152:                               msgAnswer[1] = 0x80;
+7C38  0E80     MOVLW 0x80
+7C3A  6FC7     MOVWF 0xC7, BANKED
+153:                               msgAnswer[2] = 0x80;
+7C3C  0E80     MOVLW 0x80
+7C3E  6FC8     MOVWF 0xC8, BANKED
+154:                               msgAnswer[3] = 0x80;
+7C40  0E80     MOVLW 0x80
+7C42  6FC9     MOVWF 0xC9, BANKED
+155:                               msgAnswer[4] = 0x80;
+7C44  0E80     MOVLW 0x80
+7C46  6FCA     MOVWF 0xCA, BANKED
+156:                               msgAnswer[5] = 0x80;
+7C48  0E80     MOVLW 0x80
+7C4A  6FCB     MOVWF 0xCB, BANKED
+157:                               msgAnswer[6] = 0x80;
+7C4C  0E80     MOVLW 0x80
+7C4E  6FCC     MOVWF 0xCC, BANKED
+158:                               msgAnswer[7] = 0x80;
+7C50  0E80     MOVLW 0x80
+7C52  6FCD     MOVWF 0xCD, BANKED
+159:                               msgAnswer[8] = 0x00;
+7C54  0E00     MOVLW 0x0
+7C56  6FCE     MOVWF 0xCE, BANKED
+160:                               msgAnswer[9] = 0x00;
+7C58  0E00     MOVLW 0x0
+7C5A  6FCF     MOVWF 0xCF, BANKED
+161:                               SISendMessage(msgAnswer, 10);
+7C5C  0EC6     MOVLW 0xC6
+7C5E  6E07     MOVWF p, ACCESS
+7C60  0E00     MOVLW 0x0
+7C62  6E08     MOVWF sxCh, ACCESS
+7C64  0E0A     MOVLW 0xA
+7C66  6E09     MOVWF i, ACCESS
+7C68  EC97     CALL 0x712E, 0
+7C6A  F038     NOP
+162:                           break;
+7C6C  D792     BRA 0x7B92
+163:           
+164:                           case GCP_CMD_LOCKUNLOCK:
+165:                               if ((cmd[1] == 0x47) && (cmd[2] == 0x43) && (cmd[3] == 0x2B) && (cmd[4] == 0x32) && cmdLen == 5) {
+7C6E  0E47     MOVLW 0x47
+7C70  19A1     XORWF 0xA1, W, BANKED
+7C72  A4D8     BTFSS 0xFD8, 2, ACCESS
+7C74  D012     BRA 0x7C9A
+7C76  0E43     MOVLW 0x43
+7C78  19A2     XORWF 0xA2, W, BANKED
+7C7A  A4D8     BTFSS 0xFD8, 2, ACCESS
+7C7C  D00E     BRA 0x7C9A
+7C7E  0E2B     MOVLW 0x2B
+7C80  19A3     XORWF 0xA3, W, BANKED
+7C82  A4D8     BTFSS 0xFD8, 2, ACCESS
+7C84  D00A     BRA 0x7C9A
+7C86  0E32     MOVLW 0x32
+7C88  19A4     XORWF 0xA4, W, BANKED
+7C8A  A4D8     BTFSS 0xFD8, 2, ACCESS
+7C8C  D006     BRA 0x7C9A
+7C8E  0E05     MOVLW 0x5
+7C90  19EA     XORWF cmdLen, W, BANKED
+7C92  A4D8     BTFSS 0xFD8, 2, ACCESS
+7C94  D002     BRA 0x7C9A
+166:                                   gcpLocked = 0;
+7C96  0E00     MOVLW 0x0
+7C98  D001     BRA 0x7C9C
+167:                               } else {
+168:                                   gcpLocked = 1;
+7C9A  0E01     MOVLW 0x1
+7C9C  6FEC     MOVWF gcpLocked, BANKED
+169:                               }
+170:                               msgAnswer[0] = GCP_ERR_NONE;
+7C9E  0E00     MOVLW 0x0
+7CA0  0100     MOVLB 0x0
+7CA2  6FC6     MOVWF msgAnswer, BANKED
+171:                               SISendMessage(msgAnswer, 1);
+7CA4  0EC6     MOVLW 0xC6
+7CA6  6E07     MOVWF p, ACCESS
+7CA8  0E00     MOVLW 0x0
+7CAA  6E08     MOVWF sxCh, ACCESS
+7CAC  0E01     MOVLW 0x1
+7CAE  6E09     MOVWF i, ACCESS
+7CB0  EC97     CALL 0x712E, 0
+7CB2  F038     NOP
+172:                           break;
+7CB4  D76E     BRA 0x7B92
+173:           
+174:                           case GCP_CMD_GETVER:
+175:                               if (!gcpLocked) {
+7CB6  51EC     MOVF gcpLocked, W, BANKED
+7CB8  A4D8     BTFSS 0xFD8, 2, ACCESS
+7CBA  D013     BRA 0x7CE2
+176:                                   msgAnswer[0] = 0x01; //Bootloader
+7CBC  0E01     MOVLW 0x1
+7CBE  6FC6     MOVWF msgAnswer, BANKED
+177:                                   msgAnswer[1] = GCP2_VERSION & 0xFFUL;
+7CC0  0E00     MOVLW 0x0
+7CC2  6FC7     MOVWF 0xC7, BANKED
+178:                                   msgAnswer[2] = (GCP2_VERSION >> 8) & 0xFF;
+7CC4  0E40     MOVLW 0x40
+7CC6  6FC8     MOVWF 0xC8, BANKED
+179:                                   msgAnswer[3] = GCP2_HWVERSION & 0xFFUL;
+7CC8  0E00     MOVLW 0x0
+7CCA  6FC9     MOVWF 0xC9, BANKED
+180:                                   msgAnswer[4] = (GCP2_HWVERSION >> 8) & 0xFF;
+7CCC  0E40     MOVLW 0x40
+7CCE  6FCA     MOVWF 0xCA, BANKED
+181:                                   SISendMessage(msgAnswer, 5);
+7CD0  0EC6     MOVLW 0xC6
+7CD2  6E07     MOVWF p, ACCESS
+7CD4  0E00     MOVLW 0x0
+7CD6  6E08     MOVWF sxCh, ACCESS
+7CD8  0E05     MOVLW 0x5
+7CDA  6E09     MOVWF i, ACCESS
+7CDC  EC97     CALL 0x712E, 0
+7CDE  F038     NOP
+182:                               } else {
+7CE0  D758     BRA 0x7B92
+183:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+7CE2  69C6     SETF msgAnswer, BANKED
+7CE4  D7DF     BRA 0x7CA4
+184:                                   SISendMessage(msgAnswer, 1);
+185:                               }
+186:                           break;
+187:           
+188:                           case GCP_CMD_WRITEEEPROM:
+189:                               if (!gcpLocked) {
+7CE6  51EC     MOVF gcpLocked, W, BANKED
+7CE8  A4D8     BTFSS 0xFD8, 2, ACCESS
+7CEA  D7FB     BRA 0x7CE2
+190:                                   if (cmdLen > 3) {
+7CEC  0E03     MOVLW 0x3
+7CEE  65EA     CPFSGT cmdLen, BANKED
+7CF0  D01E     BRA 0x7D2E
+191:                                       uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
+7CF2  51A2     MOVF 0xA2, W, BANKED
+7CF4  6E24     MOVWF 0x24, ACCESS
+7CF6  51A1     MOVF 0xA1, W, BANKED
+7CF8  6FC2     MOVWF addr, BANKED
+7CFC  F090     NOP
+7CFE  F0C3     NOP
+192:                                       for (i = 3; i < cmdLen; i++) {
+7D00  0E03     MOVLW 0x3
+7D02  6FEB     MOVWF i, BANKED
+7D04  D00F     BRA 0x7D24
+7D22  2BEB     INCF i, F, BANKED
+7D24  51EA     MOVF cmdLen, W, BANKED
+7D26  5DEB     SUBWF i, W, BANKED
+7D28  B0D8     BTFSC 0xFD8, 0, ACCESS
+7D2A  D7B9     BRA 0x7C9E
+7D2C  D7EC     BRA 0x7D06
+193:                                           EEPROMWriteByte(addr++, cmd[i]);
+7D06  0EA0     MOVLW 0xA0
+7D08  25EB     ADDWF i, W, BANKED
+7D0A  6ED9     MOVWF 0xFD9, ACCESS
+7D0C  6ADA     CLRF 0xFDA, ACCESS
+7D0E  0E00     MOVLW 0x0
+7D10  22DA     ADDWFC 0xFDA, F, ACCESS
+7D12  50DF     MOVF 0xFDF, W, ACCESS
+7D14  6E01     MOVWF __pcstackCOMRAM, ACCESS
+7D16  51C2     MOVF addr, W, BANKED
+7D18  ECAB     CALL 0x6956, 0
+7D1A  F034     NOP
+7D1C  0100     MOVLB 0x0
+7D1E  4BC2     INFSNZ addr, F, BANKED
+7D20  2BC3     INCF 0xC3, F, BANKED
+194:                                       }
+195:                                       msgAnswer[0] = GCP_ERR_NONE;
+196:                                       SISendMessage(msgAnswer, 1);
+197:                                   } else {
+198:                                       msgAnswer[0] = GCP_ERR_WRONGARG;
+7D2E  0EFE     MOVLW 0xFE
+7D30  D7B8     BRA 0x7CA2
+199:                                       SISendMessage(msgAnswer, 1);
+200:                                   }
+201:                               } else {
+202:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+203:                                   SISendMessage(msgAnswer, 1);
+204:                               }
+205:                           break;
+206:           
+207:                           case GCP_CMD_READEEPROM:
+208:                               if (!gcpLocked) {
+7D32  51EC     MOVF gcpLocked, W, BANKED
+7D34  A4D8     BTFSS 0xFD8, 2, ACCESS
+7D36  D7D5     BRA 0x7CE2
+209:                                   if (cmdLen == 4) {
+7D38  0E04     MOVLW 0x4
+7D3A  19EA     XORWF cmdLen, W, BANKED
+7D3C  A4D8     BTFSS 0xFD8, 2, ACCESS
+7D3E  D7F7     BRA 0x7D2E
+210:                                       uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
+7D40  51A2     MOVF 0xA2, W, BANKED
+7D42  6E24     MOVWF 0x24, ACCESS
+7D44  51A1     MOVF 0xA1, W, BANKED
+7D46  6FC4     MOVWF addr, BANKED
+7D4A  F090     NOP
+7D4C  F0C5     NOP
+211:                                       uint8_t len = cmd[3];
+7D50  F28C     NOP
+7D52  F0E9     NOP
+212:                                       if (len == 0) {
+7D54  51E9     MOVF len, W, BANKED
+7D56  B4D8     BTFSC 0xFD8, 2, ACCESS
+7D58  D7EA     BRA 0x7D2E
+213:                                           msgAnswer[0] = GCP_ERR_WRONGARG;
+214:                                           SISendMessage(msgAnswer, 1);
+215:                                       } else {
+216:                                           for (i = 0; i < len; i++) {
+7D5A  0E00     MOVLW 0x0
+7D5C  6FEB     MOVWF i, BANKED
+7D5E  D00E     BRA 0x7D7C
+7D7A  2BEB     INCF i, F, BANKED
+7D7C  51E9     MOVF len, W, BANKED
+7D7E  5DEB     SUBWF i, W, BANKED
+7D80  A0D8     BTFSS 0xFD8, 0, ACCESS
+7D82  D7EE     BRA 0x7D60
+217:                                               msgAnswer[i] = EEPROMReadByte(addr++);
+7D60  0EC6     MOVLW 0xC6
+7D62  25EB     ADDWF i, W, BANKED
+7D64  6ED9     MOVWF 0xFD9, ACCESS
+7D66  6ADA     CLRF 0xFDA, ACCESS
+7D68  0E00     MOVLW 0x0
+7D6A  22DA     ADDWFC 0xFDA, F, ACCESS
+7D6C  51C4     MOVF addr, W, BANKED
+7D6E  EC92     CALL 0x6924, 0
+7D70  F034     NOP
+7D72  6EDF     MOVWF 0xFDF, ACCESS
+7D74  0100     MOVLB 0x0
+7D76  4BC4     INFSNZ addr, F, BANKED
+7D78  2BC5     INCF 0xC5, F, BANKED
+218:                                           }
+219:                                           SISendMessage(msgAnswer, len);
+7D84  0EC6     MOVLW 0xC6
+7D86  6E07     MOVWF p, ACCESS
+7D88  0E00     MOVLW 0x0
+7D8A  6E08     MOVWF sxCh, ACCESS
+7D8E  F3A4     NOP
+7D90  F009     NOP
+7D92  EC97     CALL 0x712E, 0
+7D94  F038     NOP
+7D96  D6FD     BRA 0x7B92
+220:                                       }
+221:                                   } else {
+222:                                       msgAnswer[0] = GCP_ERR_WRONGARG;
+223:                                       SISendMessage(msgAnswer, 1);
+224:                                   }
+225:                               } else {
+226:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+227:                                   SISendMessage(msgAnswer, 1);
+228:                               }
+229:                           break;
+230:           
+231:                           case GCP_CMD_RESET:
+232:                               asm("reset");
+7D98  00FF     RESET
+233:                           break;
+7D9A  D6FB     BRA 0x7B92
+234:           
+235:                           case GCP_CMD_BOOTBL:
+236:                               //We are already in bootloader. Send error
+237:                               msgAnswer[0] = GCP_ERR_WRONGMODE;
+7D9C  0EFD     MOVLW 0xFD
+7D9E  D781     BRA 0x7CA2
+238:                               SISendMessage(msgAnswer, 1);
+239:                           break;
+240:           
+241:                           case GCP_CMD_SETMAPBYTE0:
+242:                               if (!gcpLocked) {
+7DA0  51EC     MOVF gcpLocked, W, BANKED
+7DA2  A4D8     BTFSS 0xFD8, 2, ACCESS
+7DA4  D79E     BRA 0x7CE2
+243:                                   if (cmdLen == (N_BUTTONS + 1)) {
+7DA6  0E10     MOVLW 0x10
+7DA8  19EA     XORWF cmdLen, W, BANKED
+7DAA  A4D8     BTFSS 0xFD8, 2, ACCESS
+7DAC  D7C0     BRA 0x7D2E
+244:                                       buttonsSetMapByte0(&cmd[1]);
+7DAE  0EA1     MOVLW 0xA1
+7DB0  6E01     MOVWF __pcstackCOMRAM, ACCESS
+7DB2  0E00     MOVLW 0x0
+7DB4  6E02     MOVWF cxCh, ACCESS
+7DB6  ECBD     CALL 0x697A, 0
+7DB8  F034     NOP
+7DBA  D771     BRA 0x7C9E
+245:                                       msgAnswer[0] = GCP_ERR_NONE;
+246:                                       SISendMessage(msgAnswer, 1);
+247:                                   } else {
+248:                                       msgAnswer[0] = GCP_ERR_WRONGARG;
+249:                                       SISendMessage(msgAnswer, 1);
+250:                                   }
+251:                               } else {
+252:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+253:                                   SISendMessage(msgAnswer, 1);
+254:                               }
+255:                           break;
+256:           
+257:                           case GCP_CMD_SETMAPBYTE1:
+258:                               if (!gcpLocked) {
+7DBC  51EC     MOVF gcpLocked, W, BANKED
+7DBE  A4D8     BTFSS 0xFD8, 2, ACCESS
+7DC0  D790     BRA 0x7CE2
+259:                                   if (cmdLen == (N_BUTTONS + 1)) {
+7DC2  0E10     MOVLW 0x10
+7DC4  19EA     XORWF cmdLen, W, BANKED
+7DC6  A4D8     BTFSS 0xFD8, 2, ACCESS
+7DC8  D7B2     BRA 0x7D2E
+260:                                       buttonsSetMapByte1(&cmd[1]);
+7DCA  0EA1     MOVLW 0xA1
+7DCC  6E01     MOVWF __pcstackCOMRAM, ACCESS
+7DCE  0E00     MOVLW 0x0
+7DD0  6E02     MOVWF cxCh, ACCESS
+7DD2  ECD3     CALL 0x69A6, 0
+7DD4  F034     NOP
+7DD6  D763     BRA 0x7C9E
+261:                                       msgAnswer[0] = GCP_ERR_NONE;
+262:                                       SISendMessage(msgAnswer, 1);
+263:                                   } else {
+264:                                       msgAnswer[0] = GCP_ERR_WRONGARG;
+265:                                       SISendMessage(msgAnswer, 1);
+266:                                   }
+267:                               } else {
+268:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+269:                                   SISendMessage(msgAnswer, 1);
+270:                               }
+271:                           break;
+272:           
+273:                           case GCP_CMD_GETMAPBYTE0:
+274:                               if (!gcpLocked) {
+7DD8  51EC     MOVF gcpLocked, W, BANKED
+7DDA  A4D8     BTFSS 0xFD8, 2, ACCESS
+7DDC  D782     BRA 0x7CE2
+275:                                   SISendMessage(buttonsGetMapByte0(), N_BUTTONS);
+7DDE  EC2D     CALL 0x6A5A, 0
+7DE0  F035     NOP
+7DE4  F004     NOP
+7DE6  F007     NOP
+7DEA  F008     NOP
+7DEC  F008     NOP
+7DEE  0E0F     MOVLW 0xF
+7DF0  6E09     MOVWF i, ACCESS
+7DF2  EC97     CALL 0x712E, 0
+7DF4  F038     NOP
+276:                               } else {
+7DF6  D6CD     BRA 0x7B92
+277:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+278:                                   SISendMessage(msgAnswer, 1);
+279:                               }
+280:                           break;
+281:           
+282:                           case GCP_CMD_GETMAPBYTE1:
+283:                               if (!gcpLocked) {
+7DF8  51EC     MOVF gcpLocked, W, BANKED
+7DFA  A4D8     BTFSS 0xFD8, 2, ACCESS
+7DFC  D772     BRA 0x7CE2
+284:                                   SISendMessage(buttonsGetMapByte1(), N_BUTTONS);
+7DFE  EC47     CALL 0x6A8E, 0
+7E00  F035     NOP
+7E04  F004     NOP
+7E06  F007     NOP
+7E0A  F008     NOP
+7E0C  F008     NOP
+7E0E  0E0F     MOVLW 0xF
+7E10  6E09     MOVWF i, ACCESS
+7E12  EC97     CALL 0x712E, 0
+7E14  F038     NOP
+285:                               } else {
+7E16  D6BD     BRA 0x7B92
+286:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+287:                                   SISendMessage(msgAnswer, 1);
+288:                               }
+289:                           break;
+290:           
+291:                           case GCP_CMD_RESETIDX:
+292:                               if (!gcpLocked) {
+7E18  51EC     MOVF gcpLocked, W, BANKED
+7E1A  A4D8     BTFSS 0xFD8, 2, ACCESS
+7E1C  D762     BRA 0x7CE2
+293:                                   flashBufferIdx = 0;
+7E1E  0E00     MOVLW 0x0
+7E20  6FE8     MOVWF flashBufferIdx, BANKED
+294:                                   msgAnswer[0] = GCP_ERR_NONE;
+7E22  0E00     MOVLW 0x0
+7E24  D73E     BRA 0x7CA2
+295:                                   SISendMessage(msgAnswer, 1);
+296:                               } else {
+297:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+298:                                   SISendMessage(msgAnswer, 1);
+299:                               }
+300:                           break;
+301:           
+302:                           case GCP_CMD_FILLBUFFER:
+303:                               if (!gcpLocked) {
+7E26  51EC     MOVF gcpLocked, W, BANKED
+7E28  A4D8     BTFSS 0xFD8, 2, ACCESS
+7E2A  D75B     BRA 0x7CE2
+304:                                   for (i = 1; i < cmdLen; i++) {
+7E2C  0E01     MOVLW 0x1
+7E2E  6FEB     MOVWF i, BANKED
+7E30  D013     BRA 0x7E58
+7E56  2BEB     INCF i, F, BANKED
+7E58  51EA     MOVF cmdLen, W, BANKED
+7E5A  5DEB     SUBWF i, W, BANKED
+7E5C  B0D8     BTFSC 0xFD8, 0, ACCESS
+7E5E  D71F     BRA 0x7C9E
+7E60  D7E8     BRA 0x7E32
+305:                                       flashBuffer[flashBufferIdx++] = cmd[i];
+7E32  0EA0     MOVLW 0xA0
+7E34  25EB     ADDWF i, W, BANKED
+7E36  6ED9     MOVWF 0xFD9, ACCESS
+7E38  6ADA     CLRF 0xFDA, ACCESS
+7E3A  0E00     MOVLW 0x0
+7E3C  22DA     ADDWFC 0xFDA, F, ACCESS
+7E3E  0E60     MOVLW 0x60
+7E40  25E8     ADDWF flashBufferIdx, W, BANKED
+7E42  6EE1     MOVWF 0xFE1, ACCESS
+7E44  6AE2     CLRF 0xFE2, ACCESS
+7E46  0E00     MOVLW 0x0
+7E48  22E2     ADDWFC 0xFE2, F, ACCESS
+7E4C  FF7F     NOP
+7E4E  FFE7     NOP
+7E50  2BE8     INCF flashBufferIdx, F, BANKED
+306:                                       flashBufferIdx &= 63;
+7E52  0E3F     MOVLW 0x3F
+7E54  17E8     ANDWF flashBufferIdx, F, BANKED
+307:                                   }
+308:                                   msgAnswer[0] = GCP_ERR_NONE;
+309:                                   SISendMessage(msgAnswer, 1);
+310:                               } else {
+311:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+312:                                   SISendMessage(msgAnswer, 1);
+313:                               }
+314:                           break;
+315:           
+316:                           case GCP_CMD_READBUFFER:
+317:                               if (!gcpLocked) {
+7E62  51EC     MOVF gcpLocked, W, BANKED
+7E64  A4D8     BTFSS 0xFD8, 2, ACCESS
+7E66  D73D     BRA 0x7CE2
+318:                                   for (i = 0; i < 16; i++) {
+7E68  0E00     MOVLW 0x0
+7E6A  6FEB     MOVWF i, BANKED
+7E6C  0E0F     MOVLW 0xF
+7E6E  65EB     CPFSGT i, BANKED
+7E70  D001     BRA 0x7E74
+7E72  D014     BRA 0x7E9C
+7E98  2BEB     INCF i, F, BANKED
+7E9A  D7E8     BRA 0x7E6C
+319:                                       msgAnswer[i] = flashBuffer[flashBufferIdx++];
+7E74  0E60     MOVLW 0x60
+7E76  25E8     ADDWF flashBufferIdx, W, BANKED
+7E78  6ED9     MOVWF 0xFD9, ACCESS
+7E7A  6ADA     CLRF 0xFDA, ACCESS
+7E7C  0E00     MOVLW 0x0
+7E7E  22DA     ADDWFC 0xFDA, F, ACCESS
+7E80  0EC6     MOVLW 0xC6
+7E82  25EB     ADDWF i, W, BANKED
+7E84  6EE1     MOVWF 0xFE1, ACCESS
+7E86  6AE2     CLRF 0xFE2, ACCESS
+7E88  0E00     MOVLW 0x0
+7E8A  22E2     ADDWFC 0xFE2, F, ACCESS
+7E8E  FF7F     NOP
+7E90  FFE7     NOP
+7E92  2BE8     INCF flashBufferIdx, F, BANKED
+320:                                       flashBufferIdx &= 63;
+7E94  0E3F     MOVLW 0x3F
+7E96  17E8     ANDWF flashBufferIdx, F, BANKED
+321:                                   }
+322:                                   SISendMessage(msgAnswer, 16);
+7E9C  0EC6     MOVLW 0xC6
+7E9E  6E07     MOVWF p, ACCESS
+7EA0  0E00     MOVLW 0x0
+7EA2  6E08     MOVWF sxCh, ACCESS
+7EA4  0E10     MOVLW 0x10
+7EA6  6E09     MOVWF i, ACCESS
+7EA8  EC97     CALL 0x712E, 0
+7EAA  F038     NOP
+323:                               } else {
+7EAC  D672     BRA 0x7B92
+324:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+325:                                   SISendMessage(msgAnswer, 1);
+326:                               }
+327:                           break;
+328:           
+329:                           case GCP_CMD_WRITEFLASH:
+330:                               if (!gcpLocked) {
+7EAE  51EC     MOVF gcpLocked, W, BANKED
+7EB0  A4D8     BTFSS 0xFD8, 2, ACCESS
+7EB2  D717     BRA 0x7CE2
+331:                                   if (cmdLen == 3) {
+7EB4  0E03     MOVLW 0x3
+7EB6  19EA     XORWF cmdLen, W, BANKED
+7EB8  A4D8     BTFSS 0xFD8, 2, ACCESS
+7EBA  D739     BRA 0x7D2E
+332:                                       uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
+7EBC  51A2     MOVF 0xA2, W, BANKED
+7EBE  6E24     MOVWF 0x24, ACCESS
+7EC0  51A1     MOVF 0xA1, W, BANKED
+7EC2  6FE6     MOVWF addr, BANKED
+7EC6  F090     NOP
+7EC8  F0E7     NOP
+333:                                       if (addr & 63) {
+7ECA  0E3F     MOVLW 0x3F
+7ECC  15E6     ANDWF addr, W, BANKED
+7ECE  6E24     MOVWF 0x24, ACCESS
+7ED0  0E00     MOVLW 0x0
+7ED2  15E7     ANDWF 0xE7, W, BANKED
+7ED4  6E25     MOVWF 0x25, ACCESS
+7ED6  5024     MOVF 0x24, W, ACCESS
+7ED8  1025     IORWF 0x25, W, ACCESS
+7EDA  A4D8     BTFSS 0xFD8, 2, ACCESS
+7EDC  D728     BRA 0x7D2E
+334:                                           msgAnswer[0] = GCP_ERR_WRONGARG;
+335:                                           SISendMessage(msgAnswer, 1);
+336:                                       } else {
+337:                                           PGMEraseRow(addr);
+7EE0  F398     NOP
+7EE2  F001     NOP
+7EE6  F39C     NOP
+7EE8  F002     NOP
+7EEA  EC7C     CALL 0x6AF8, 0
+7EEC  F035     NOP
+338:                                           PGMWriteBlock(addr, flashBuffer);
+7EF0  F398     NOP
+7EF2  F001     NOP
+7EF6  F39C     NOP
+7EF8  F002     NOP
+7EFA  0E60     MOVLW 0x60
+7EFC  6E03     MOVWF cyCh, ACCESS
+7EFE  0E00     MOVLW 0x0
+7F00  6E04     MOVWF i, ACCESS
+7F02  EC0C     CALL 0x6E18, 0
+7F04  F037     NOP
+7F06  D6CB     BRA 0x7C9E
+339:                                           msgAnswer[0] = GCP_ERR_NONE;
+340:                                           SISendMessage(msgAnswer, 1);
+341:                                       }
+342:                                   } else {
+343:                                       msgAnswer[0] = GCP_ERR_WRONGARG;
+344:                                       SISendMessage(msgAnswer, 1);
+345:                                   }
+346:                               } else {
+347:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+348:                                   SISendMessage(msgAnswer, 1);
+349:                               }
+350:                           break;
+351:           
+352:                           case GCP_CMD_READFLASH:
+353:                               if (!gcpLocked) {
+7F08  51EC     MOVF gcpLocked, W, BANKED
+7F0A  A4D8     BTFSS 0xFD8, 2, ACCESS
+7F0C  D6EA     BRA 0x7CE2
+354:                                   if (cmdLen == 3) {
+7F0E  0E03     MOVLW 0x3
+7F10  19EA     XORWF cmdLen, W, BANKED
+7F12  A4D8     BTFSS 0xFD8, 2, ACCESS
+7F14  D70C     BRA 0x7D2E
+355:                                       uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
+7F16  51A2     MOVF 0xA2, W, BANKED
+7F18  6E24     MOVWF 0x24, ACCESS
+7F1A  51A1     MOVF 0xA1, W, BANKED
+7F1C  6FC0     MOVWF addr, BANKED
+7F20  F090     NOP
+7F22  F0C1     NOP
+356:                                       PGMReadBlock(addr, flashBuffer);
+7F26  F300     NOP
+7F28  F001     NOP
+7F2C  F304     NOP
+7F2E  F002     NOP
+7F30  0E60     MOVLW 0x60
+7F32  6E03     MOVWF cyCh, ACCESS
+7F34  0E00     MOVLW 0x0
+7F36  6E04     MOVWF i, ACCESS
+7F38  EC18     CALL 0x6C30, 0
+7F3A  F036     NOP
+357:                                       msgAnswer[0] = GCP_ERR_NONE;
+7F3C  0E00     MOVLW 0x0
+7F3E  0100     MOVLB 0x0
+7F40  6FC6     MOVWF msgAnswer, BANKED
+358:                                       SISendMessage(msgAnswer, 1);
+7F42  0EC6     MOVLW 0xC6
+7F44  6E07     MOVWF p, ACCESS
+7F46  0E00     MOVLW 0x0
+7F48  6E08     MOVWF sxCh, ACCESS
+7F4A  0E01     MOVLW 0x1
+7F4C  6E09     MOVWF i, ACCESS
+7F4E  EC97     CALL 0x712E, 0
+7F50  F038     NOP
+359:                                   } else {
+7F52  D61F     BRA 0x7B92
+360:                                       msgAnswer[0] = GCP_ERR_WRONGARG;
+361:                                       SISendMessage(msgAnswer, 1);
+362:                                   }
+363:                               } else {
+364:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+365:                                   SISendMessage(msgAnswer, 1);
+366:                               }
+367:                           break;
+368:           
+369:                           case GCP_CMD_BOOTPAYLOAD:
+370:                               if (!gcpLocked) {
+7F54  51EC     MOVF gcpLocked, W, BANKED
+7F56  A4D8     BTFSS 0xFD8, 2, ACCESS
+7F58  D6C4     BRA 0x7CE2
+371:                                   msgAnswer[0] = GCP_ERR_NONE;
+7F5A  0E00     MOVLW 0x0
+7F5C  6FC6     MOVWF msgAnswer, BANKED
+372:                                   SISendMessage(msgAnswer, 1);
+7F5E  0EC6     MOVLW 0xC6
+7F60  6E07     MOVWF p, ACCESS
+7F62  0E00     MOVLW 0x0
+7F64  6E08     MOVWF sxCh, ACCESS
+7F66  0E01     MOVLW 0x1
+7F68  6E09     MOVWF i, ACCESS
+7F6A  EC97     CALL 0x712E, 0
+7F6C  F038     NOP
+373:                                   bootPayload();
+7F6E  EC9C     CALL 0x6938, 0
+7F70  F034     NOP
+374:                               } else {
+7F72  D60F     BRA 0x7B92
+375:                                   msgAnswer[0] = GCP_ERR_LOCKED;
+376:                                   SISendMessage(msgAnswer, 1);
+377:                               }
+378:                           break;
+379:           
+380:                           default: //Unknown command
+381:                               SIClear();
+7F74  EC89     CALL 0x6912, 0
+7F76  F034     NOP
+382:                           break;
+7F78  D60C     BRA 0x7B92
+7F7A  51A0     MOVF cmd, W, BANKED
+7F7C  0A00     XORLW 0x0
+7F7E  B4D8     BTFSC 0xFD8, 2, ACCESS
+7F80  D625     BRA 0x7BCC
+7F82  0A10     XORLW 0x10
+7F84  B4D8     BTFSC 0xFD8, 2, ACCESS
+7F86  D673     BRA 0x7C6E
+7F88  0A01     XORLW 0x1
+7F8A  B4D8     BTFSC 0xFD8, 2, ACCESS
+7F8C  D694     BRA 0x7CB6
+7F8E  0A03     XORLW 0x3
+7F90  B4D8     BTFSC 0xFD8, 2, ACCESS
+7F92  D6A9     BRA 0x7CE6
+7F94  0A01     XORLW 0x1
+7F96  B4D8     BTFSC 0xFD8, 2, ACCESS
+7F98  D6CC     BRA 0x7D32
+7F9A  0A07     XORLW 0x7
+7F9C  B4D8     BTFSC 0xFD8, 2, ACCESS
+7F9E  D6FC     BRA 0x7D98
+7FA0  0A01     XORLW 0x1
+7FA2  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FA4  D6FB     BRA 0x7D9C
+7FA6  0A03     XORLW 0x3
+7FA8  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FAA  D6FA     BRA 0x7DA0
+7FAC  0A01     XORLW 0x1
+7FAE  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FB0  D705     BRA 0x7DBC
+7FB2  0A0F     XORLW 0xF
+7FB4  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FB6  D710     BRA 0x7DD8
+7FB8  0A01     XORLW 0x1
+7FBA  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FBC  D71D     BRA 0x7DF8
+7FBE  0A59     XORLW 0x59
+7FC0  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FC2  D61E     BRA 0x7C00
+7FC4  0A01     XORLW 0x1
+7FC6  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FC8  D635     BRA 0x7C34
+7FCA  0A03     XORLW 0x3
+7FCC  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FCE  D632     BRA 0x7C34
+7FD0  0A32     XORLW 0x32
+7FD2  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FD4  D721     BRA 0x7E18
+7FD6  0A01     XORLW 0x1
+7FD8  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FDA  D725     BRA 0x7E26
+7FDC  0A03     XORLW 0x3
+7FDE  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FE0  D740     BRA 0x7E62
+7FE2  0A01     XORLW 0x1
+7FE4  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FE6  D763     BRA 0x7EAE
+7FE8  0A07     XORLW 0x7
+7FEA  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FEC  D78D     BRA 0x7F08
+7FEE  0A01     XORLW 0x1
+7FF0  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FF2  D7B0     BRA 0x7F54
+7FF4  0A8A     XORLW 0x8A
+7FF6  B4D8     BTFSC 0xFD8, 2, ACCESS
+7FF8  D5E9     BRA 0x7BCC
+7FFA  D7BC     BRA 0x7F74
+383:                       }
+384:                   }
+385:               }
+386:           
+387:               return;
+388:           }
+389:           
+390:           void portsInit(void) {
+391:               //Stop interrupts
+392:               bool state = (unsigned char)GIE;
+6BC6  0E00     MOVLW 0x0
+6BC8  BED2     BTFSC 0xFD2, 7, ACCESS
+6BCA  0E01     MOVLW 0x1
+6BCC  6E01     MOVWF __pcstackCOMRAM, ACCESS
+393:               GIE = 0;
+6BCE  9ED2     BCF 0xFD2, 7, ACCESS
+394:               PPSLOCK = 0x55;
+6BD0  0E55     MOVLW 0x55
+6BD2  013A     MOVLB 0x3A
+6BD4  6FBF     MOVWF 0xBF, BANKED
+395:               PPSLOCK = 0xAA;
+6BD6  0EAA     MOVLW 0xAA
+6BD8  6FBF     MOVWF 0xBF, BANKED
+396:               PPSLOCKbits.PPSLOCKED = 0x00; //Unlock PPS
+6BDA  91BF     BCF 0xBF, 0, BANKED
+397:           
+398:               //Data line wired to RB2
+399:               //Reception
+400:               T6INPPS = 0x0A; //RB2 to T6INPPS. Used as reset trigger
+6BDC  0E0A     MOVLW 0xA
+6BDE  6FCC     MOVWF 0xCC, BANKED
+401:               SMT1SIGPPS = 0x0A; //RB2
+6BE0  0E0A     MOVLW 0xA
+6BE2  6FD2     MOVWF 0xD2, BANKED
+402:           
+403:               //Transmission
+404:               RB2PPS = 0x04; //CLC4 to RB2
+6BE4  0E04     MOVLW 0x4
+6BE6  6F0A     MOVWF 0xA, BANKED
+405:           
+406:               //Rumble PWM
+407:               RB3PPS = 0x09; //CCP1
+6BE8  0E09     MOVLW 0x9
+6BEA  6F0B     MOVWF i, BANKED
+408:           
+409:               PPSLOCK = 0x55;
+6BEC  0E55     MOVLW 0x55
+6BEE  6FBF     MOVWF 0xBF, BANKED
+410:               PPSLOCK = 0xAA;
+6BF0  0EAA     MOVLW 0xAA
+6BF2  6FBF     MOVWF 0xBF, BANKED
+411:               PPSLOCKbits.PPSLOCKED = 0x01; //Lock PPS
+6BF4  81BF     BSF 0xBF, 0, BANKED
+412:               GIE = state; //Restore interrupts
+6BF6  A001     BTFSS __pcstackCOMRAM, 0, ACCESS
+6BF8  D002     BRA 0x6BFE
+6BFA  8ED2     BSF 0xFD2, 7, ACCESS
+6BFC  D001     BRA 0x6C00
+6BFE  9ED2     BCF 0xFD2, 7, ACCESS
+413:           
+414:               LATB = 0xFF;
+6C00  68BB     SETF 0xFBB, ACCESS
+415:           
+416:               //Bootloader won't emulate analog triggers
+417:               TRISA = 0xFF;
+6C02  68C2     SETF 0xFC2, ACCESS
+418:               TRISB = 0xE7;
+6C04  0EE7     MOVLW 0xE7
+6C06  6EC3     MOVWF 0xFC3, ACCESS
+419:               TRISC = 0xFF;
+6C08  68C4     SETF 0xFC4, ACCESS
+420:               ANSELA = 0x0F;
+6C0A  0E0F     MOVLW 0xF
+6C0C  013A     MOVLB 0x3A
+6C0E  6F40     MOVWF _ButtonsID, BANKED
+421:               ANSELB = 0x00;
+6C10  0E00     MOVLW 0x0
+6C12  6F50     MOVWF 0x50, BANKED
+422:               ANSELC = 0x00;
+6C14  0E00     MOVLW 0x0
+6C16  6F60     MOVWF __pcstackBANK0, BANKED
+423:               WPUA = 0xF0;
+6C18  0EF0     MOVLW 0xF0
+6C1A  6F41     MOVWF buttonsMessage, BANKED
+424:               WPUB = 0x27;
+6C1C  0E27     MOVLW 0x27
+6C1E  6F51     MOVWF 0x51, BANKED
+425:               WPUC = 0xFF;
+6C20  6961     SETF 0x61, BANKED
+426:               ODCONA = 0x00;
+6C22  0E00     MOVLW 0x0
+6C24  6F42     MOVWF 0x42, BANKED
+427:               ODCONB = 0x04;
+6C26  0E04     MOVLW 0x4
+6C28  6F52     MOVWF 0x52, BANKED
+428:               ODCONC = 0x00;
+6C2A  0E00     MOVLW 0x0
+6C2C  6F62     MOVWF 0x62, BANKED
+429:           }
+6C2E  0012     RETURN 0
+430:           
+431:           void bootPayload(void) {
+432:               STKPTR = 0x00; //Clean up stack
+6938  0E00     MOVLW 0x0
+693A  6EFC     MOVWF 0xFFC, ACCESS
+433:               uint16_t addr = PAYLOAD_ADDR + 4; //Skips header
+434:               IVTBASE = addr + 8; //Set interrupt base address
+693C  0E0C     MOVLW 0xC
+693E  6ED5     MOVWF 0xFD5, ACCESS
+6940  0E20     MOVLW 0x20
+6942  6ED6     MOVWF 0xFD6, ACCESS
+6944  0E00     MOVLW 0x0
+6946  6ED7     MOVWF 0xFD7, ACCESS
+435:               PCLATU = 0x00;
+6948  0E00     MOVLW 0x0
+694A  6EFB     MOVWF 0xFFB, ACCESS
+436:               PCLATH = (addr >> 8) & 0xFF;
+694C  0E20     MOVLW 0x20
+694E  6EFA     MOVWF 0xFFA, ACCESS
+437:               PCL = addr & 0xFFUL;
+6950  0E04     MOVLW 0x4
+6952  6EF9     MOVWF 0xFF9, ACCESS
+438:           }
+6954  0012     RETURN 0
+---  /Users/aurelio/Programmazione/gcplus2-0/GCPlus2.0.X/config.c  --------------------------------------
+1:             #include "main.h"
+2:             
+3:             config_t config;
+4:             
+5:             void configInit(void) {
+6:                 uint8_t* data = (uint8_t*)&config;
+6B6E  0E20     MOVLW 0x20
+6B70  6E09     MOVWF i, ACCESS
+6B72  0E01     MOVLW 0x1
+6B74  6E0A     MOVWF 0xA, ACCESS
+7:                 uint8_t i;
+8:                 for (i = 0; i < sizeof(config_t); i++) {
+6B76  0E00     MOVLW 0x0
+6B78  6E0B     MOVWF i, ACCESS
+6BBC  2A0B     INCF i, F, ACCESS
+9:                     asm("clrwdt");
+6B7A  0004     CLRWDT
+10:                    data[i] = EEPROMReadByte(i);
+6B7C  500B     MOVF i, W, ACCESS
+6B7E  2409     ADDWF i, W, ACCESS
+6B80  6ED9     MOVWF 0xFD9, ACCESS
+6B82  0E00     MOVLW 0x0
+6B84  200A     ADDWFC 0xA, W, ACCESS
+6B86  6EDA     MOVWF 0xFDA, ACCESS
+6B88  500B     MOVF i, W, ACCESS
+6B8A  EC92     CALL 0x6924, 0
+6B8C  F034     NOP
+6B8E  6EDF     MOVWF 0xFDF, ACCESS
+11:            
+12:                    //Check magic code
+13:                    if (i == 3U && config.magicCode != 0x322B4347UL) {
+6B90  0E03     MOVLW 0x3
+6B92  180B     XORWF i, W, ACCESS
+6B94  A4D8     BTFSS 0xFD8, 2, ACCESS
+6B96  D012     BRA 0x6BBC
+6B98  0E47     MOVLW 0x47
+6B9A  0101     MOVLB 0x1
+6B9C  1920     XORWF i, W, BANKED
+6B9E  E10A     BNZ 0x6BB4
+6BA0  0E43     MOVLW 0x43
+6BA2  1921     XORWF 0x21, W, BANKED
+6BA4  E107     BNZ 0x6BB4
+6BA6  0E2B     MOVLW 0x2B
+6BA8  1922     XORWF radius, W, BANKED
+6BAA  E104     BNZ 0x6BB4
+6BAC  0E32     MOVLW 0x32
+6BAE  1923     XORWF 0x23, W, BANKED
+6BB0  B4D8     BTFSC 0xFD8, 2, ACCESS
+6BB2  D004     BRA 0x6BBC
+14:                        //Magic code wrong. Set default configuration
+15:                        configSetDefault();
+6BB4  EC53     CALL 0x6CA6, 0
+6BB6  F036     NOP
+16:                        configFlashAll();
+6BB8  ECE9     CALL 0x69D2, 0
+6BBA  F034     NOP
+6BBC  2A0B     INCF i, F, ACCESS
+6BBE  0E17     MOVLW 0x17
+6BC0  640B     CPFSGT i, ACCESS
+6BC2  D7DB     BRA 0x6B7A
+6BC4  0012     RETURN 0
+17:                    }
+18:                }
+19:            }
+20:            
+21:            void configSetDefault(void) {
+22:                //Clear all parameters
+23:                memset((void*)&config, 0, sizeof(config_t));
+6CA6  0E20     MOVLW 0x20
+6CA8  6E01     MOVWF __pcstackCOMRAM, ACCESS
+6CAA  0E01     MOVLW 0x1
+6CAC  6E02     MOVWF cxCh, ACCESS
+6CAE  0E00     MOVLW 0x0
+6CB0  6E04     MOVWF i, ACCESS
+6CB2  0E00     MOVLW 0x0
+6CB4  6E03     MOVWF cyCh, ACCESS
+6CB6  0E00     MOVLW 0x0
+6CB8  6E06     MOVWF la, ACCESS
+6CBA  0E18     MOVLW 0x18
+6CBC  6E05     MOVWF i, ACCESS
+6CBE  EC61     CALL 0x6AC2, 0
+6CC0  F035     NOP
+24:            
+25:                //Header
+26:                config.magicCode = 0x322B4347UL;
+6CC2  0E47     MOVLW 0x47
+6CC4  0101     MOVLB 0x1
+6CC6  6F20     MOVWF i, BANKED
+6CC8  0E43     MOVLW 0x43
+6CCA  6F21     MOVWF 0x21, BANKED
+6CCC  0E2B     MOVLW 0x2B
+6CCE  6F22     MOVWF radius, BANKED
+6CD0  0E32     MOVLW 0x32
+6CD2  6F23     MOVWF 0x23, BANKED
+27:                config.version = GCP2_VERSION;
+6CD4  0E40     MOVLW 0x40
+6CD6  6F25     MOVWF 0x25, BANKED
+6CD8  0E00     MOVLW 0x0
+6CDA  6F24     MOVWF 0x24, BANKED
+28:            
+29:                //Sticks configuration
+30:                config.SXMin = 0x00;
+6CDC  0E00     MOVLW 0x0
+6CDE  6F26     MOVWF buttonsTimers, BANKED
+31:                config.SXMax = 0xFF;
+6CE0  6927     SETF 0x27, BANKED
+32:                config.SYMin = 0x00;
+6CE2  0E00     MOVLW 0x0
+6CE4  6F28     MOVWF 0x28, BANKED
+33:                config.SYMax = 0xFF;
+6CE6  6929     SETF 0x29, BANKED
+34:                config.CXMin = 0x00;
+6CE8  0E00     MOVLW 0x0
+6CEA  6F2A     MOVWF 0x2A, BANKED
+35:                config.CXMax = 0xFF;
+6CEC  692B     SETF 0x2B, BANKED
+36:                config.CYMin = 0x00;
+6CEE  0E00     MOVLW 0x0
+6CF0  6F2C     MOVWF 0x2C, BANKED
+37:                config.CYMax = 0xFF;
+6CF2  692D     SETF 0x2D, BANKED
+38:                config.SXChan = 0x02;
+6CF4  0E02     MOVLW 0x2
+6CF6  6F2E     MOVWF 0x2E, BANKED
+39:                config.SYChan = 0x03;
+6CF8  0E03     MOVLW 0x3
+6CFA  6F2F     MOVWF 0x2F, BANKED
+40:                config.CXChan = 0x00;
+6CFC  0E00     MOVLW 0x0
+6CFE  6F30     MOVWF 0x30, BANKED
+41:                config.CYChan = 0x01;
+6D00  0E01     MOVLW 0x1
+6D02  6F31     MOVWF 0x31, BANKED
+42:                config.axInvert = 0x00;
+6D04  0E00     MOVLW 0x0
+6D06  6F32     MOVWF 0x32, BANKED
+43:                config.SDeadzone = 0x18;
+6D08  0E18     MOVLW 0x18
+6D0A  6F33     MOVWF 0x33, BANKED
+44:                config.CDeadzone = 0x18;
+6D0C  0E18     MOVLW 0x18
+6D0E  6F34     MOVWF 0x34, BANKED
+45:                config.deadzoneMode = DZ_MODE_SCALEDRADIAL;
+6D10  0E01     MOVLW 0x1
+6D12  6F35     MOVWF outButtons, BANKED
+46:            
+47:                //Rumble
+48:                config.rumbleIntensity = 0xFF;
+6D14  6936     SETF 0x36, BANKED
+49:            
+50:                //Triggers mode
+51:                config.triggersMode = 0; //Digital
+6D16  0E00     MOVLW 0x0
+6D18  6F37     MOVWF 0x37, BANKED
+52:            }
+6D1A  0012     RETURN 0
+53:            
+54:            void configFlashAll(void) {
+55:                uint8_t i;
+56:                uint8_t* data = (uint8_t*)&config;
+69D2  0E20     MOVLW 0x20
+69D4  6E03     MOVWF cyCh, ACCESS
+69D6  0E01     MOVLW 0x1
+69D8  6E04     MOVWF i, ACCESS
+57:                for (i = 0; i < sizeof(config_t); i++) {
+69DA  0E00     MOVLW 0x0
+69DC  6E05     MOVWF i, ACCESS
+69F4  2A05     INCF i, F, ACCESS
+58:                    EEPROMWriteByte(i, data[i]);
+69DE  5005     MOVF i, W, ACCESS
+69E0  2403     ADDWF cyCh, W, ACCESS
+69E2  6ED9     MOVWF 0xFD9, ACCESS
+69E4  0E00     MOVLW 0x0
+69E6  2004     ADDWFC i, W, ACCESS
+69E8  6EDA     MOVWF 0xFDA, ACCESS
+69EA  50DF     MOVF 0xFDF, W, ACCESS
+69EC  6E01     MOVWF __pcstackCOMRAM, ACCESS
+69EE  5005     MOVF i, W, ACCESS
+69F0  ECAB     CALL 0x6956, 0
+69F2  F034     NOP
+69F4  2A05     INCF i, F, ACCESS
+69F6  0E17     MOVLW 0x17
+69F8  6405     CPFSGT i, ACCESS
+69FA  D7F1     BRA 0x69DE
+69FC  0012     RETURN 0
+59:                }
+60:            }
+---  /Users/aurelio/Programmazione/gcplus2-0/GCPlus2.0.X/buttons.c  -------------------------------------
+1:             #include "main.h"
+2:             
+3:             #define DEBOUNCE 10 //ms
+4:             
+5:             //Handy macros
+6:             #define CHECK_TIMER(b) if (toggledButtons.##b) buttonsTimers[BUTTON_##b##_ID] = 0;
+7:             
+8:             /*#define CHECK_DEBOUNCE(b, t) if (buttonsTimers[t] >= DEBOUNCE) { \
+9:                     buttonsTimers[t] = DEBOUNCE; \
+10:                    outButtons.##b = prevButtons.##b ^ 1; \
+11:                }*/
+12:            
+13:            #define CHECK_DEBOUNCE_BYTE0(b) if (buttonsTimers[BUTTON_##b##_ID] >= DEBOUNCE && !prevButtons.##b) { \
+14:                    buttonsTimers[BUTTON_##b##_ID] = DEBOUNCE; \
+15:                    outButtons.byte0 |= buttonsMapByte0[BUTTON_##b##_ID]; \
+16:                }
+17:            
+18:            #define CHECK_DEBOUNCE_BYTE1(b) if (buttonsTimers[BUTTON_##b##_ID] >= DEBOUNCE && !prevButtons.##b) { \
+19:                    buttonsTimers[BUTTON_##b##_ID] = DEBOUNCE; \
+20:                    outButtons.byte1 |= buttonsMapByte1[BUTTON_##b##_ID]; \
+21:                }
+22:            
+23:            #define CHECK_DEBOUNCE(b) CHECK_DEBOUNCE_BYTE0(b) \
+24:                CHECK_DEBOUNCE_BYTE1(b)
+25:            
+26:            inButtons_t prevButtons;
+27:            outButtons_t outButtons;
+28:            
+29:            uint8_t buttonsTimers[N_BUTTONS];
+30:            uint8_t buttonsMessage[8];
+31:            uint8_t buttonsMapByte0[N_BUTTONS];
+32:            uint8_t buttonsMapByte1[N_BUTTONS];
+33:            uint8_t LUT_SX[0x100];
+34:            uint8_t LUT_SY[0x100];
+35:            uint8_t LUT_CX[0x100];
+36:            uint8_t LUT_CY[0x100];
+37:            
+38:            void buttonsInit(void) {
+39:                //Use timer 0 as a 1 ms timer for debouncing
+40:                T0CON0 = 0x00;
+6D96  0E00     MOVLW 0x0
+6D98  6EB8     MOVWF 0xFB8, ACCESS
+41:                T0CON1 = 0x47; //FOSC/4 (16MHz). Prescaler = 1:128
+6D9A  0E47     MOVLW 0x47
+6D9C  6EB9     MOVWF 0xFB9, ACCESS
+42:                TMR0H = 124; //Rollover at 124 ticks
+6D9E  0E7C     MOVLW 0x7C
+6DA0  6EB7     MOVWF 0xFB7, ACCESS
+43:                TMR0IF = 0;
+6DA2  0139     MOVLB 0x39
+6DA4  9FA3     BCF 0xA3, 7, BANKED
+44:                T0CON0 = 0x80; //T0ON = 1. 8bit. 1:1 postscaler
+6DA6  0E80     MOVLW 0x80
+6DA8  6EB8     MOVWF 0xFB8, ACCESS
+45:            
+46:                //Default mapping
+47:                memset(buttonsMapByte0, 0, N_BUTTONS);
+6DAA  0E38     MOVLW 0x38
+6DAC  6E01     MOVWF __pcstackCOMRAM, ACCESS
+6DAE  0E01     MOVLW 0x1
+6DB0  6E02     MOVWF cxCh, ACCESS
+6DB2  0E00     MOVLW 0x0
+6DB4  6E04     MOVWF i, ACCESS
+6DB6  0E00     MOVLW 0x0
+6DB8  6E03     MOVWF cyCh, ACCESS
+6DBA  0E00     MOVLW 0x0
+6DBC  6E06     MOVWF la, ACCESS
+6DBE  0E0F     MOVLW 0xF
+6DC0  6E05     MOVWF i, ACCESS
+6DC2  EC61     CALL 0x6AC2, 0
+6DC4  F035     NOP
+48:                memset(buttonsMapByte1, 0, N_BUTTONS);
+6DC6  0EF0     MOVLW 0xF0
+6DC8  6E01     MOVWF __pcstackCOMRAM, ACCESS
+6DCA  0E00     MOVLW 0x0
+6DCC  6E02     MOVWF cxCh, ACCESS
+6DCE  0E00     MOVLW 0x0
+6DD0  6E04     MOVWF i, ACCESS
+6DD2  0E00     MOVLW 0x0
+6DD4  6E03     MOVWF cyCh, ACCESS
+6DD6  0E00     MOVLW 0x0
+6DD8  6E06     MOVWF la, ACCESS
+6DDA  0E0F     MOVLW 0xF
+6DDC  6E05     MOVWF i, ACCESS
+6DDE  EC61     CALL 0x6AC2, 0
+6DE0  F035     NOP
+49:                //Byte 0
+50:                buttonsMapByte0[BUTTON_A_ID] = 0x01;
+6DE2  0E01     MOVLW 0x1
+6DE4  0101     MOVLB 0x1
+6DE6  6F38     MOVWF 0x38, BANKED
+51:                buttonsMapByte0[BUTTON_B_ID] = 0x02;
+6DE8  0E02     MOVLW 0x2
+6DEA  6F39     MOVWF prevButtons, BANKED
+52:                buttonsMapByte0[BUTTON_X_ID] = 0x04;
+6DEC  0E04     MOVLW 0x4
+6DEE  6F3A     MOVWF 0x3A, BANKED
+53:                buttonsMapByte0[BUTTON_Y_ID] = 0x08;
+6DF0  0E08     MOVLW 0x8
+6DF2  6F3B     MOVWF 0x3B, BANKED
+54:                buttonsMapByte0[BUTTON_ST_ID] = 0x10;
+6DF4  0E10     MOVLW 0x10
+6DF6  6F3C     MOVWF SITempByte, BANKED
+55:                //Byte 1
+56:                buttonsMapByte1[BUTTON_DL_ID] = 0x01;
+6DF8  0E01     MOVLW 0x1
+6DFA  0100     MOVLB 0x0
+6DFC  6FF5     MOVWF 0xF5, BANKED
+57:                buttonsMapByte1[BUTTON_DR_ID] = 0x02;
+6DFE  0E02     MOVLW 0x2
+6E00  6FF6     MOVWF 0xF6, BANKED
+58:                buttonsMapByte1[BUTTON_DD_ID] = 0x04;
+6E02  0E04     MOVLW 0x4
+6E04  6FF7     MOVWF 0xF7, BANKED
+59:                buttonsMapByte1[BUTTON_DU_ID] = 0x08;
+6E06  0E08     MOVLW 0x8
+6E08  6FF8     MOVWF 0xF8, BANKED
+60:                buttonsMapByte1[BUTTON_Z_ID] = 0x10;
+6E0A  0E10     MOVLW 0x10
+6E0C  6FF9     MOVWF 0xF9, BANKED
+61:                buttonsMapByte1[BUTTON_RD_ID] = 0x20;
+6E0E  0E20     MOVLW 0x20
+6E10  6FFA     MOVWF 0xFA, BANKED
+62:                buttonsMapByte1[BUTTON_LD_ID] = 0x40;
+6E12  0E40     MOVLW 0x40
+6E14  6FFB     MOVWF 0xFB, BANKED
+63:            }
+6E16  0012     RETURN 0
+64:            
+65:            void buttonsUpdate(void) {
+66:                uint8_t i;
+67:                uint8_t PA, PB, PC;
+68:                inButtons_t toggledButtons;
+69:            
+70:                //Check which pins were toggled
+71:                PA = PORTA;
+77E2  FF28     NOP
+77E4  F001     NOP
+72:                PB = PORTB;
+77E8  FF2C     NOP
+77EA  F002     NOP
+73:                PC = PORTC;
+77EE  FF30     NOP
+77F0  F003     NOP
+74:                toggledButtons.PORTA = (uint8_t)(PA ^ prevButtons.PORTA);
+77F2  5039     MOVF prevButtons, W, ACCESS
+77F4  1801     XORWF __pcstackCOMRAM, W, ACCESS
+77F6  6E05     MOVWF i, ACCESS
+75:                toggledButtons.PORTB = (uint8_t)(PB ^ prevButtons.PORTB);
+77F8  503A     MOVF 0x3A, W, ACCESS
+77FA  1802     XORWF cxCh, W, ACCESS
+77FC  6E06     MOVWF la, ACCESS
+76:                toggledButtons.PORTC = (uint8_t)(PC ^ prevButtons.PORTC);
+77FE  503B     MOVF 0x3B, W, ACCESS
+7800  1803     XORWF cyCh, W, ACCESS
+7802  6E07     MOVWF p, ACCESS
+77:                //Store values for next frame
+78:                prevButtons.PORTA = PA;
+7806  F004     NOP
+7808  F039     NOP
+79:                prevButtons.PORTB = PB;
+780C  F008     NOP
+780E  F03A     NOP
+80:                prevButtons.PORTC = PC;
+7812  F00C     NOP
+7814  F03B     NOP
+81:            
+82:                //Reset the timers if the pins were toggled
+83:                CHECK_TIMER(A)
+7816  A805     BTFSS i, 4, ACCESS
+7818  D002     BRA 0x781E
+781A  0E00     MOVLW 0x0
+781C  6E26     MOVWF buttonsTimers, ACCESS
+84:                CHECK_TIMER(B)
+781E  AA05     BTFSS i, 5, ACCESS
+7820  D002     BRA 0x7826
+7822  0E00     MOVLW 0x0
+7824  6E27     MOVWF 0x27, ACCESS
+85:                CHECK_TIMER(X)
+7826  AE05     BTFSS i, 7, ACCESS
+7828  D002     BRA 0x782E
+782A  0E00     MOVLW 0x0
+782C  6E28     MOVWF 0x28, ACCESS
+86:                CHECK_TIMER(Y)
+782E  AC05     BTFSS i, 6, ACCESS
+7830  D002     BRA 0x7836
+7832  0E00     MOVLW 0x0
+7834  6E29     MOVWF 0x29, ACCESS
+87:                CHECK_TIMER(ST)
+7836  A207     BTFSS p, 1, ACCESS
+7838  D002     BRA 0x783E
+783A  0E00     MOVLW 0x0
+783C  6E2A     MOVWF 0x2A, ACCESS
+88:                CHECK_TIMER(DL)
+783E  A206     BTFSS la, 1, ACCESS
+7840  D002     BRA 0x7846
+7842  0E00     MOVLW 0x0
+7844  6E2B     MOVWF 0x2B, ACCESS
+89:                CHECK_TIMER(DR)
+7846  A006     BTFSS la, 0, ACCESS
+7848  D002     BRA 0x784E
+784A  0E00     MOVLW 0x0
+784C  6E2C     MOVWF 0x2C, ACCESS
+90:                CHECK_TIMER(DD)
+784E  AE07     BTFSS p, 7, ACCESS
+7850  D002     BRA 0x7856
+7852  0E00     MOVLW 0x0
+7854  6E2D     MOVWF 0x2D, ACCESS
+91:                CHECK_TIMER(DU)
+7856  AC07     BTFSS p, 6, ACCESS
+7858  D002     BRA 0x785E
+785A  0E00     MOVLW 0x0
+785C  6E2E     MOVWF 0x2E, ACCESS
+92:                CHECK_TIMER(Z)
+785E  A007     BTFSS p, 0, ACCESS
+7860  D002     BRA 0x7866
+7862  0E00     MOVLW 0x0
+7864  6E2F     MOVWF 0x2F, ACCESS
+93:                CHECK_TIMER(RD)
+7866  A407     BTFSS p, 2, ACCESS
+7868  D002     BRA 0x786E
+786A  0E00     MOVLW 0x0
+786C  6E30     MOVWF 0x30, ACCESS
+94:                CHECK_TIMER(LD)
+786E  AA07     BTFSS p, 5, ACCESS
+7870  D002     BRA 0x7876
+7872  0E00     MOVLW 0x0
+7874  6E31     MOVWF 0x31, ACCESS
+95:                CHECK_TIMER(LA)
+7876  A807     BTFSS p, 4, ACCESS
+7878  D002     BRA 0x787E
+787A  0E00     MOVLW 0x0
+787C  6E32     MOVWF 0x32, ACCESS
+96:                CHECK_TIMER(RA)
+787E  A607     BTFSS p, 3, ACCESS
+7880  D002     BRA 0x7886
+7882  0E00     MOVLW 0x0
+7884  6E33     MOVWF 0x33, ACCESS
+97:                CHECK_TIMER(Z2)
+7886  AA06     BTFSS la, 5, ACCESS
+7888  D002     BRA 0x788E
+788A  0E00     MOVLW 0x0
+788C  6E34     MOVWF 0x34, ACCESS
+98:            
+99:                if (!TMR0IF) return;
+788E  0139     MOVLB 0x39
+7890  AFA3     BTFSS 0xA3, 7, BANKED
+7892  0012     RETURN 0
+100:               TMR0IF = 0; //Reset the timer interrupt flag
+7894  9FA3     BCF 0xA3, 7, BANKED
+101:           
+102:               //Increment the timers
+103:               for (i = 0; i < N_BUTTONS; i++) {
+7896  0E00     MOVLW 0x0
+7898  6E04     MOVWF i, ACCESS
+78A8  2A04     INCF i, F, ACCESS
+78AA  0E0E     MOVLW 0xE
+78AC  6404     CPFSGT i, ACCESS
+78AE  D7F5     BRA 0x789A
+104:                   buttonsTimers[i]++;
+789A  0E26     MOVLW 0x26
+789C  2404     ADDWF i, W, ACCESS
+789E  6ED9     MOVWF 0xFD9, ACCESS
+78A0  6ADA     CLRF 0xFDA, ACCESS
+78A2  0E00     MOVLW 0x0
+78A4  22DA     ADDWFC 0xFDA, F, ACCESS
+78A6  2ADF     INCF 0xFDF, F, ACCESS
+105:               }
+106:           
+107:               outButtons.byte0 = 0x00;
+78B0  0E00     MOVLW 0x0
+78B2  6E35     MOVWF outButtons, ACCESS
+108:               outButtons.byte1 = 0x80; //Make sure er is 1
+78B4  0E80     MOVLW 0x80
+78B6  6E36     MOVWF 0x36, ACCESS
+109:               //Update valid buttons
+110:               CHECK_DEBOUNCE(A)
+78B8  0E09     MOVLW 0x9
+78BA  6426     CPFSGT buttonsTimers, ACCESS
+78BC  D007     BRA 0x78CC
+78BE  B839     BTFSC prevButtons, 4, ACCESS
+78C0  D005     BRA 0x78CC
+78C2  0E0A     MOVLW 0xA
+78C4  6E26     MOVWF buttonsTimers, ACCESS
+78C6  0101     MOVLB 0x1
+78C8  5138     MOVF 0x38, W, BANKED
+78CA  1235     IORWF outButtons, F, ACCESS
+78CC  0E09     MOVLW 0x9
+78CE  6426     CPFSGT buttonsTimers, ACCESS
+78D0  D007     BRA 0x78E0
+78D2  B839     BTFSC prevButtons, 4, ACCESS
+78D4  D005     BRA 0x78E0
+78D6  0E0A     MOVLW 0xA
+78D8  6E26     MOVWF buttonsTimers, ACCESS
+78DA  0100     MOVLB 0x0
+78DC  51F0     MOVF buttonsMapByte1, W, BANKED
+78DE  1236     IORWF 0x36, F, ACCESS
+111:               CHECK_DEBOUNCE(B)
+78E0  0E09     MOVLW 0x9
+78E2  6427     CPFSGT 0x27, ACCESS
+78E4  D007     BRA 0x78F4
+78E6  BA39     BTFSC prevButtons, 5, ACCESS
+78E8  D005     BRA 0x78F4
+78EA  0E0A     MOVLW 0xA
+78EC  6E27     MOVWF 0x27, ACCESS
+78EE  0101     MOVLB 0x1
+78F0  5139     MOVF prevButtons, W, BANKED
+78F2  1235     IORWF outButtons, F, ACCESS
+78F4  0E09     MOVLW 0x9
+78F6  6427     CPFSGT 0x27, ACCESS
+78F8  D007     BRA 0x7908
+78FA  BA39     BTFSC prevButtons, 5, ACCESS
+78FC  D005     BRA 0x7908
+78FE  0E0A     MOVLW 0xA
+7900  6E27     MOVWF 0x27, ACCESS
+7902  0100     MOVLB 0x0
+7904  51F1     MOVF 0xF1, W, BANKED
+7906  1236     IORWF 0x36, F, ACCESS
+112:               CHECK_DEBOUNCE(X)
+7908  0E09     MOVLW 0x9
+790A  6428     CPFSGT 0x28, ACCESS
+790C  D007     BRA 0x791C
+790E  BE39     BTFSC prevButtons, 7, ACCESS
+7910  D005     BRA 0x791C
+7912  0E0A     MOVLW 0xA
+7914  6E28     MOVWF 0x28, ACCESS
+7916  0101     MOVLB 0x1
+7918  513A     MOVF 0x3A, W, BANKED
+791A  1235     IORWF outButtons, F, ACCESS
+791C  0E09     MOVLW 0x9
+791E  6428     CPFSGT 0x28, ACCESS
+7920  D007     BRA 0x7930
+7922  BE39     BTFSC prevButtons, 7, ACCESS
+7924  D005     BRA 0x7930
+7926  0E0A     MOVLW 0xA
+7928  6E28     MOVWF 0x28, ACCESS
+792A  0100     MOVLB 0x0
+792C  51F2     MOVF 0xF2, W, BANKED
+792E  1236     IORWF 0x36, F, ACCESS
+113:               CHECK_DEBOUNCE(Y)
+7930  0E09     MOVLW 0x9
+7932  6429     CPFSGT 0x29, ACCESS
+7934  D007     BRA 0x7944
+7936  BC39     BTFSC prevButtons, 6, ACCESS
+7938  D005     BRA 0x7944
+793A  0E0A     MOVLW 0xA
+793C  6E29     MOVWF 0x29, ACCESS
+793E  0101     MOVLB 0x1
+7940  513B     MOVF 0x3B, W, BANKED
+7942  1235     IORWF outButtons, F, ACCESS
+7944  0E09     MOVLW 0x9
+7946  6429     CPFSGT 0x29, ACCESS
+7948  D007     BRA 0x7958
+794A  BC39     BTFSC prevButtons, 6, ACCESS
+794C  D005     BRA 0x7958
+794E  0E0A     MOVLW 0xA
+7950  6E29     MOVWF 0x29, ACCESS
+7952  0100     MOVLB 0x0
+7954  51F3     MOVF 0xF3, W, BANKED
+7956  1236     IORWF 0x36, F, ACCESS
+114:               CHECK_DEBOUNCE(ST)
+7958  0E09     MOVLW 0x9
+795A  642A     CPFSGT 0x2A, ACCESS
+795C  D007     BRA 0x796C
+795E  B23B     BTFSC 0x3B, 1, ACCESS
+7960  D005     BRA 0x796C
+7962  0E0A     MOVLW 0xA
+7964  6E2A     MOVWF 0x2A, ACCESS
+7966  0101     MOVLB 0x1
+7968  513C     MOVF SITempByte, W, BANKED
+796A  1235     IORWF outButtons, F, ACCESS
+796C  0E09     MOVLW 0x9
+796E  642A     CPFSGT 0x2A, ACCESS
+7970  D007     BRA 0x7980
+7972  B23B     BTFSC 0x3B, 1, ACCESS
+7974  D005     BRA 0x7980
+7976  0E0A     MOVLW 0xA
+7978  6E2A     MOVWF 0x2A, ACCESS
+797A  0100     MOVLB 0x0
+797C  51F4     MOVF 0xF4, W, BANKED
+797E  1236     IORWF 0x36, F, ACCESS
+115:               CHECK_DEBOUNCE(DL)
+7980  0E09     MOVLW 0x9
+7982  642B     CPFSGT 0x2B, ACCESS
+7984  D007     BRA 0x7994
+7986  B23A     BTFSC 0x3A, 1, ACCESS
+7988  D005     BRA 0x7994
+798A  0E0A     MOVLW 0xA
+798C  6E2B     MOVWF 0x2B, ACCESS
+798E  0101     MOVLB 0x1
+7990  513D     MOVF SICMDReceived, W, BANKED
+7992  1235     IORWF outButtons, F, ACCESS
+7994  0E09     MOVLW 0x9
+7996  642B     CPFSGT 0x2B, ACCESS
+7998  D007     BRA 0x79A8
+799A  B23A     BTFSC 0x3A, 1, ACCESS
+799C  D005     BRA 0x79A8
+799E  0E0A     MOVLW 0xA
+79A0  6E2B     MOVWF 0x2B, ACCESS
+79A2  0100     MOVLB 0x0
+79A4  51F5     MOVF 0xF5, W, BANKED
+79A6  1236     IORWF 0x36, F, ACCESS
+116:               CHECK_DEBOUNCE(DR)
+79A8  0E09     MOVLW 0x9
+79AA  642C     CPFSGT 0x2C, ACCESS
+79AC  D007     BRA 0x79BC
+79AE  B03A     BTFSC 0x3A, 0, ACCESS
+79B0  D005     BRA 0x79BC
+79B2  0E0A     MOVLW 0xA
+79B4  6E2C     MOVWF 0x2C, ACCESS
+79B6  0101     MOVLB 0x1
+79B8  513E     MOVF SIByteCounter, W, BANKED
+79BA  1235     IORWF outButtons, F, ACCESS
+79BC  0E09     MOVLW 0x9
+79BE  642C     CPFSGT 0x2C, ACCESS
+79C0  D007     BRA 0x79D0
+79C2  B03A     BTFSC 0x3A, 0, ACCESS
+79C4  D005     BRA 0x79D0
+79C6  0E0A     MOVLW 0xA
+79C8  6E2C     MOVWF 0x2C, ACCESS
+79CA  0100     MOVLB 0x0
+79CC  51F6     MOVF 0xF6, W, BANKED
+79CE  1236     IORWF 0x36, F, ACCESS
+117:               CHECK_DEBOUNCE(DD)
+79D0  0E09     MOVLW 0x9
+79D2  642D     CPFSGT 0x2D, ACCESS
+79D4  D007     BRA 0x79E4
+79D6  BE3B     BTFSC 0x3B, 7, ACCESS
+79D8  D005     BRA 0x79E4
+79DA  0E0A     MOVLW 0xA
+79DC  6E2D     MOVWF 0x2D, ACCESS
+79DE  0101     MOVLB 0x1
+79E0  513F     MOVF SIBitCounter, W, BANKED
+79E2  1235     IORWF outButtons, F, ACCESS
+79E4  0E09     MOVLW 0x9
+79E6  642D     CPFSGT 0x2D, ACCESS
+79E8  D007     BRA 0x79F8
+79EA  BE3B     BTFSC 0x3B, 7, ACCESS
+79EC  D005     BRA 0x79F8
+79EE  0E0A     MOVLW 0xA
+79F0  6E2D     MOVWF 0x2D, ACCESS
+79F2  0100     MOVLB 0x0
+79F4  51F7     MOVF 0xF7, W, BANKED
+79F6  1236     IORWF 0x36, F, ACCESS
+118:               CHECK_DEBOUNCE(DU)
+79F8  0E09     MOVLW 0x9
+79FA  642E     CPFSGT 0x2E, ACCESS
+79FC  D007     BRA 0x7A0C
+79FE  BC3B     BTFSC 0x3B, 6, ACCESS
+7A00  D005     BRA 0x7A0C
+7A02  0E0A     MOVLW 0xA
+7A04  6E2E     MOVWF 0x2E, ACCESS
+7A06  0101     MOVLB 0x1
+7A08  5140     MOVF _ButtonsID, W, BANKED
+7A0A  1235     IORWF outButtons, F, ACCESS
+7A0C  0E09     MOVLW 0x9
+7A0E  642E     CPFSGT 0x2E, ACCESS
+7A10  D007     BRA 0x7A20
+7A12  BC3B     BTFSC 0x3B, 6, ACCESS
+7A14  D005     BRA 0x7A20
+7A16  0E0A     MOVLW 0xA
+7A18  6E2E     MOVWF 0x2E, ACCESS
+7A1A  0100     MOVLB 0x0
+7A1C  51F8     MOVF 0xF8, W, BANKED
+7A1E  1236     IORWF 0x36, F, ACCESS
+119:               CHECK_DEBOUNCE(Z)
+7A20  0E09     MOVLW 0x9
+7A22  642F     CPFSGT 0x2F, ACCESS
+7A24  D007     BRA 0x7A34
+7A26  B03B     BTFSC 0x3B, 0, ACCESS
+7A28  D005     BRA 0x7A34
+7A2A  0E0A     MOVLW 0xA
+7A2C  6E2F     MOVWF 0x2F, ACCESS
+7A2E  0101     MOVLB 0x1
+7A30  5141     MOVF buttonsMessage, W, BANKED
+7A32  1235     IORWF outButtons, F, ACCESS
+7A34  0E09     MOVLW 0x9
+7A36  642F     CPFSGT 0x2F, ACCESS
+7A38  D007     BRA 0x7A48
+7A3A  B03B     BTFSC 0x3B, 0, ACCESS
+7A3C  D005     BRA 0x7A48
+7A3E  0E0A     MOVLW 0xA
+7A40  6E2F     MOVWF 0x2F, ACCESS
+7A42  0100     MOVLB 0x0
+7A44  51F9     MOVF 0xF9, W, BANKED
+7A46  1236     IORWF 0x36, F, ACCESS
+120:               CHECK_DEBOUNCE(RD)
+7A48  0E09     MOVLW 0x9
+7A4A  6430     CPFSGT 0x30, ACCESS
+7A4C  D007     BRA 0x7A5C
+7A4E  B43B     BTFSC 0x3B, 2, ACCESS
+7A50  D005     BRA 0x7A5C
+7A52  0E0A     MOVLW 0xA
+7A54  6E30     MOVWF 0x30, ACCESS
+7A56  0101     MOVLB 0x1
+7A58  5142     MOVF 0x42, W, BANKED
+7A5A  1235     IORWF outButtons, F, ACCESS
+7A5C  0E09     MOVLW 0x9
+7A5E  6430     CPFSGT 0x30, ACCESS
+7A60  D007     BRA 0x7A70
+7A62  B43B     BTFSC 0x3B, 2, ACCESS
+7A64  D005     BRA 0x7A70
+7A66  0E0A     MOVLW 0xA
+7A68  6E30     MOVWF 0x30, ACCESS
+7A6A  0100     MOVLB 0x0
+7A6C  51FA     MOVF 0xFA, W, BANKED
+7A6E  1236     IORWF 0x36, F, ACCESS
+121:               CHECK_DEBOUNCE(LD)
+7A70  0E09     MOVLW 0x9
+7A72  6431     CPFSGT 0x31, ACCESS
+7A74  D007     BRA 0x7A84
+7A76  BA3B     BTFSC 0x3B, 5, ACCESS
+7A78  D005     BRA 0x7A84
+7A7A  0E0A     MOVLW 0xA
+7A7C  6E31     MOVWF 0x31, ACCESS
+7A7E  0101     MOVLB 0x1
+7A80  5143     MOVF 0x43, W, BANKED
+7A82  1235     IORWF outButtons, F, ACCESS
+7A84  0E09     MOVLW 0x9
+7A86  6431     CPFSGT 0x31, ACCESS
+7A88  D007     BRA 0x7A98
+7A8A  BA3B     BTFSC 0x3B, 5, ACCESS
+7A8C  D005     BRA 0x7A98
+7A8E  0E0A     MOVLW 0xA
+7A90  6E31     MOVWF 0x31, ACCESS
+7A92  0100     MOVLB 0x0
+7A94  51FB     MOVF 0xFB, W, BANKED
+7A96  1236     IORWF 0x36, F, ACCESS
+122:               CHECK_DEBOUNCE(Z2)
+7A98  0E09     MOVLW 0x9
+7A9A  6434     CPFSGT 0x34, ACCESS
+7A9C  D007     BRA 0x7AAC
+7A9E  BA3A     BTFSC 0x3A, 5, ACCESS
+7AA0  D005     BRA 0x7AAC
+7AA2  0E0A     MOVLW 0xA
+7AA4  6E34     MOVWF 0x34, ACCESS
+7AA6  0101     MOVLB 0x1
+7AA8  5146     MOVF 0x46, W, BANKED
+7AAA  1235     IORWF outButtons, F, ACCESS
+7AAC  0E09     MOVLW 0x9
+7AAE  6434     CPFSGT 0x34, ACCESS
+7AB0  D007     BRA 0x7AC0
+7AB2  BA3A     BTFSC 0x3A, 5, ACCESS
+7AB4  D005     BRA 0x7AC0
+7AB6  0E0A     MOVLW 0xA
+7AB8  6E34     MOVWF 0x34, ACCESS
+7ABA  0100     MOVLB 0x0
+7ABC  51FE     MOVF 0xFE, W, BANKED
+7ABE  1236     IORWF 0x36, F, ACCESS
+123:               //Slightly different check for the analog triggers
+124:               if (buttonsTimers[BUTTON_LA_ID] >= DEBOUNCE) {
+7AC0  0E09     MOVLW 0x9
+7AC2  6432     CPFSGT 0x32, ACCESS
+7AC4  D008     BRA 0x7AD6
+125:                   buttonsTimers[BUTTON_LA_ID] = DEBOUNCE;
+7AC6  0E0A     MOVLW 0xA
+7AC8  6E32     MOVWF 0x32, ACCESS
+126:                   if (prevButtons.LA) {
+7ACA  A83B     BTFSS 0x3B, 4, ACCESS
+7ACC  D003     BRA 0x7AD4
+127:                       outButtons.LA = 0;
+7ACE  0E00     MOVLW 0x0
+7AD0  6E37     MOVWF 0x37, ACCESS
+128:                   } else {
+7AD2  D001     BRA 0x7AD6
+129:                       outButtons.LA = 0xFF;
+7AD4  6837     SETF 0x37, ACCESS
+130:                   }
+131:               }
+132:               if (buttonsTimers[BUTTON_RA_ID] >= DEBOUNCE) {
+7AD6  0E09     MOVLW 0x9
+7AD8  6433     CPFSGT 0x33, ACCESS
+7ADA  0012     RETURN 0
+133:                   buttonsTimers[BUTTON_RA_ID] = DEBOUNCE;
+7ADC  0E0A     MOVLW 0xA
+7ADE  6E33     MOVWF 0x33, ACCESS
+134:                   if (prevButtons.RA) {
+7AE0  A63B     BTFSS 0x3B, 3, ACCESS
+7AE2  D003     BRA 0x7AEA
+135:                       outButtons.RA = 0;
+7AE4  0E00     MOVLW 0x0
+7AE6  6E38     MOVWF 0x38, ACCESS
+136:                   } else {
+7AE8  0012     RETURN 0
+137:                       outButtons.RA = 0xFF;
+7AEA  6838     SETF 0x38, ACCESS
+138:                   }
+139:               }
+140:           }
+7AEC  0012     RETURN 0
+141:           
+142:           uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode) {
+72E8  6E04     MOVWF i, ACCESS
+143:               buttonsMessage[0] = outButtons.byte0;
+72EC  F0D4     NOP
+72EE  F041     NOP
+144:               buttonsMessage[1] = outButtons.byte1;
+72F2  F0D8     NOP
+72F4  F042     NOP
+145:               buttonsMessage[2] = LUT_SX[ADC_SX];
+72F6  0E00     MOVLW 0x0
+72F8  2449     ADDWF ADCValues, W, ACCESS
+72FA  6ED9     MOVWF 0xFD9, ACCESS
+72FC  6ADA     CLRF 0xFDA, ACCESS
+72FE  0E04     MOVLW 0x4
+7300  22DA     ADDWFC 0xFDA, F, ACCESS
+7302  50DF     MOVF 0xFDF, W, ACCESS
+7304  6E43     MOVWF 0x43, ACCESS
+146:               buttonsMessage[3] = LUT_SY[ADC_SY];
+7306  0E00     MOVLW 0x0
+7308  244A     ADDWF 0x4A, W, ACCESS
+730A  6ED9     MOVWF 0xFD9, ACCESS
+730C  6ADA     CLRF 0xFDA, ACCESS
+730E  0E05     MOVLW 0x5
+7310  22DA     ADDWFC 0xFDA, F, ACCESS
+7312  50DF     MOVF 0xFDF, W, ACCESS
+7314  6E44     MOVWF 0x44, ACCESS
+147:           
+148:               uint8_t ra, la;
+149:               if (triggersMode == TRIG_MODE_DIGITAL) {
+7316  5001     MOVF __pcstackCOMRAM, W, ACCESS
+7318  A4D8     BTFSS 0xFD8, 2, ACCESS
+731A  D007     BRA 0x732A
+150:                   ra = outButtons.RA;
+731E  F0E0     NOP
+7320  F005     NOP
+151:                   la = outButtons.LA;
+7324  F0DC     NOP
+7326  F006     NOP
+152:               } else {
+7328  D088     BRA 0x743A
+153:                   ra = ADC_R;
+732C  F134     NOP
+732E  F005     NOP
+154:                   la = ADC_L;
+7332  F138     NOP
+7334  F006     NOP
+7336  D081     BRA 0x743A
+155:               }
+156:           
+157:               switch (analogMode) {
+743A  5004     MOVF i, W, ACCESS
+743C  0A00     XORLW 0x0
+743E  B4D8     BTFSC 0xFD8, 2, ACCESS
+7440  D77B     BRA 0x7338
+7442  0A01     XORLW 0x1
+7444  B4D8     BTFSC 0xFD8, 2, ACCESS
+7446  D795     BRA 0x7372
+7448  0A03     XORLW 0x3
+744A  B4D8     BTFSC 0xFD8, 2, ACCESS
+744C  D7AE     BRA 0x73AA
+744E  0A01     XORLW 0x1
+7450  B4D8     BTFSC 0xFD8, 2, ACCESS
+7452  D7CC     BRA 0x73EC
+7454  0A07     XORLW 0x7
+7456  B4D8     BTFSC 0xFD8, 2, ACCESS
+7458  D7E0     BRA 0x741A
+745A  0A01     XORLW 0x1
+745C  B4D8     BTFSC 0xFD8, 2, ACCESS
+745E  D76C     BRA 0x7338
+7460  0A03     XORLW 0x3
+7462  B4D8     BTFSC 0xFD8, 2, ACCESS
+7464  D769     BRA 0x7338
+7466  0A01     XORLW 0x1
+7468  B4D8     BTFSC 0xFD8, 2, ACCESS
+746A  D766     BRA 0x7338
+158:                   case 0:
+159:                   case 5:
+160:                   case 6:
+161:                   case 7:
+162:                       buttonsMessage[4] = LUT_CX[ADC_CX];
+7338  0E00     MOVLW 0x0
+733A  244B     ADDWF 0x4B, W, ACCESS
+733C  6ED9     MOVWF 0xFD9, ACCESS
+733E  6ADA     CLRF 0xFDA, ACCESS
+7340  0E02     MOVLW 0x2
+7342  22DA     ADDWFC 0xFDA, F, ACCESS
+7344  50DF     MOVF 0xFDF, W, ACCESS
+7346  6E45     MOVWF 0x45, ACCESS
+163:                       buttonsMessage[5] = LUT_CY[ADC_CY];
+7348  0E00     MOVLW 0x0
+734A  244C     ADDWF 0x4C, W, ACCESS
+734C  6ED9     MOVWF 0xFD9, ACCESS
+734E  6ADA     CLRF 0xFDA, ACCESS
+7350  0E03     MOVLW 0x3
+7352  22DA     ADDWFC 0xFDA, F, ACCESS
+7354  50DF     MOVF 0xFDF, W, ACCESS
+7356  6E46     MOVWF 0x46, ACCESS
+164:                       //I swear Microchip, I hate you
+165:                       buttonsMessage[6] = (uint8_t)((uint8_t)(la & 0xF0U) | (uint8_t)(ra >> 4U));
+735A  F014     NOP
+735C  F003     NOP
+735E  3A03     SWAPF cyCh, F, ACCESS
+7360  0E0F     MOVLW 0xF
+7362  1603     ANDWF cyCh, F, ACCESS
+7364  5006     MOVF la, W, ACCESS
+7366  0BF0     ANDLW 0xF0
+7368  1003     IORWF cyCh, W, ACCESS
+736A  6E47     MOVWF 0x47, ACCESS
+166:                       buttonsMessage[7] = 0x00; //Analog A/B
+736C  0E00     MOVLW 0x0
+736E  6E48     MOVWF 0x48, ACCESS
+167:                   break;
+7370  D07D     BRA 0x746C
+168:           
+169:                   case 1:
+170:                       buttonsMessage[4] = (uint8_t)((uint8_t)(LUT_CX[ADC_CX] & 0xF0U) | (uint8_t)(LUT_CY[ADC_CY] >> 4U));
+7372  0E00     MOVLW 0x0
+7374  244C     ADDWF 0x4C, W, ACCESS
+7376  6ED9     MOVWF 0xFD9, ACCESS
+7378  6ADA     CLRF 0xFDA, ACCESS
+737A  0E03     MOVLW 0x3
+737C  22DA     ADDWFC 0xFDA, F, ACCESS
+737E  50DF     MOVF 0xFDF, W, ACCESS
+7380  6E03     MOVWF cyCh, ACCESS
+7382  3A03     SWAPF cyCh, F, ACCESS
+7384  0E0F     MOVLW 0xF
+7386  1603     ANDWF cyCh, F, ACCESS
+7388  0E00     MOVLW 0x0
+738A  244B     ADDWF 0x4B, W, ACCESS
+738C  6ED9     MOVWF 0xFD9, ACCESS
+738E  6ADA     CLRF 0xFDA, ACCESS
+7390  0E02     MOVLW 0x2
+7392  22DA     ADDWFC 0xFDA, F, ACCESS
+7394  50DF     MOVF 0xFDF, W, ACCESS
+7396  0BF0     ANDLW 0xF0
+7398  1003     IORWF cyCh, W, ACCESS
+739A  6E45     MOVWF 0x45, ACCESS
+171:                       buttonsMessage[5] = la;
+739E  F018     NOP
+73A0  F046     NOP
+172:                       buttonsMessage[6] = ra;
+73A4  F014     NOP
+73A6  F047     NOP
+73A8  D7E1     BRA 0x736C
+173:                       buttonsMessage[7] = 0x00; //Analog A/B
+174:                   break;
+175:           
+176:                   case 2:
+177:                       buttonsMessage[4] = (uint8_t)((uint8_t)(LUT_CX[ADC_CX] & 0xF0U) | (uint8_t)(LUT_CY[ADC_CY] >> 4U));
+73AA  0E00     MOVLW 0x0
+73AC  244C     ADDWF 0x4C, W, ACCESS
+73AE  6ED9     MOVWF 0xFD9, ACCESS
+73B0  6ADA     CLRF 0xFDA, ACCESS
+73B2  0E03     MOVLW 0x3
+73B4  22DA     ADDWFC 0xFDA, F, ACCESS
+73B6  50DF     MOVF 0xFDF, W, ACCESS
+73B8  6E03     MOVWF cyCh, ACCESS
+73BA  3A03     SWAPF cyCh, F, ACCESS
+73BC  0E0F     MOVLW 0xF
+73BE  1603     ANDWF cyCh, F, ACCESS
+73C0  0E00     MOVLW 0x0
+73C2  244B     ADDWF 0x4B, W, ACCESS
+73C4  6ED9     MOVWF 0xFD9, ACCESS
+73C6  6ADA     CLRF 0xFDA, ACCESS
+73C8  0E02     MOVLW 0x2
+73CA  22DA     ADDWFC 0xFDA, F, ACCESS
+73CC  50DF     MOVF 0xFDF, W, ACCESS
+73CE  0BF0     ANDLW 0xF0
+73D0  1003     IORWF cyCh, W, ACCESS
+73D2  6E45     MOVWF 0x45, ACCESS
+178:                       buttonsMessage[5] = (uint8_t)((uint8_t)(la & 0xF0U) | (uint8_t)(ra >> 4U));
+73D6  F014     NOP
+73D8  F003     NOP
+73DA  3A03     SWAPF cyCh, F, ACCESS
+73DC  0E0F     MOVLW 0xF
+73DE  1603     ANDWF cyCh, F, ACCESS
+73E0  5006     MOVF la, W, ACCESS
+73E2  0BF0     ANDLW 0xF0
+73E4  1003     IORWF cyCh, W, ACCESS
+73E6  6E46     MOVWF 0x46, ACCESS
+179:                       buttonsMessage[6] = 0x00; //Analog A
+73E8  0E00     MOVLW 0x0
+73EA  D7BF     BRA 0x736A
+180:                       buttonsMessage[7] = 0x00; //Analog B
+181:                   break;
+182:           
+183:                   case 3:
+184:                       buttonsMessage[4] = LUT_CX[ADC_CX];
+73EC  0E00     MOVLW 0x0
+73EE  244B     ADDWF 0x4B, W, ACCESS
+73F0  6ED9     MOVWF 0xFD9, ACCESS
+73F2  6ADA     CLRF 0xFDA, ACCESS
+73F4  0E02     MOVLW 0x2
+73F6  22DA     ADDWFC 0xFDA, F, ACCESS
+73F8  50DF     MOVF 0xFDF, W, ACCESS
+73FA  6E45     MOVWF 0x45, ACCESS
+185:                       buttonsMessage[5] = LUT_CY[ADC_CY];
+73FC  0E00     MOVLW 0x0
+73FE  244C     ADDWF 0x4C, W, ACCESS
+7400  6ED9     MOVWF 0xFD9, ACCESS
+7402  6ADA     CLRF 0xFDA, ACCESS
+7404  0E03     MOVLW 0x3
+7406  22DA     ADDWFC 0xFDA, F, ACCESS
+7408  50DF     MOVF 0xFDF, W, ACCESS
+740A  6E46     MOVWF 0x46, ACCESS
+186:                       buttonsMessage[6] = ADC_L;
+740E  F138     NOP
+7410  F047     NOP
+187:                       buttonsMessage[7] = ADC_R;
+7414  F134     NOP
+7416  F048     NOP
+188:                   break;
+7418  D029     BRA 0x746C
+189:           
+190:                   case 4:
+191:                       buttonsMessage[4] = LUT_CX[ADC_CX];
+741A  0E00     MOVLW 0x0
+741C  244B     ADDWF 0x4B, W, ACCESS
+741E  6ED9     MOVWF 0xFD9, ACCESS
+7420  6ADA     CLRF 0xFDA, ACCESS
+7422  0E02     MOVLW 0x2
+7424  22DA     ADDWFC 0xFDA, F, ACCESS
+7426  50DF     MOVF 0xFDF, W, ACCESS
+7428  6E45     MOVWF 0x45, ACCESS
+192:                       buttonsMessage[5] = LUT_CY[ADC_CY];
+742A  0E00     MOVLW 0x0
+742C  244C     ADDWF 0x4C, W, ACCESS
+742E  6ED9     MOVWF 0xFD9, ACCESS
+7430  6ADA     CLRF 0xFDA, ACCESS
+7432  0E03     MOVLW 0x3
+7434  22DA     ADDWFC 0xFDA, F, ACCESS
+7436  50DF     MOVF 0xFDF, W, ACCESS
+7438  D7D6     BRA 0x73E6
+193:                       buttonsMessage[6] = 0x00; //Analog A
+194:                       buttonsMessage[7] = 0x00; //Analog B
+195:                   break;
+196:               }
+197:           
+198:               return buttonsMessage;
+746C  0E41     MOVLW 0x41
+746E  6E01     MOVWF __pcstackCOMRAM, ACCESS
+7470  0E00     MOVLW 0x0
+7472  6E02     MOVWF cxCh, ACCESS
+199:           }
+7474  0012     RETURN 0
+200:           
+201:           void buttonsSetMapByte0(uint8_t* map) {
+202:               uint8_t i;
+203:           
+204:               for (i = 0; i < N_BUTTONS; i++) {
+697A  0E00     MOVLW 0x0
+697C  6E03     MOVWF cyCh, ACCESS
+699C  2A03     INCF cyCh, F, ACCESS
+699E  0E0E     MOVLW 0xE
+69A0  6403     CPFSGT cyCh, ACCESS
+69A2  D7ED     BRA 0x697E
+69A4  0012     RETURN 0
+205:                   buttonsMapByte0[i] = map[i];
+697E  5003     MOVF cyCh, W, ACCESS
+6980  2401     ADDWF __pcstackCOMRAM, W, ACCESS
+6982  6ED9     MOVWF 0xFD9, ACCESS
+6984  0E00     MOVLW 0x0
+6986  2002     ADDWFC cxCh, W, ACCESS
+6988  6EDA     MOVWF 0xFDA, ACCESS
+698A  0E38     MOVLW 0x38
+698C  2403     ADDWF cyCh, W, ACCESS
+698E  6EE1     MOVWF 0xFE1, ACCESS
+6990  6AE2     CLRF 0xFE2, ACCESS
+6992  0E01     MOVLW 0x1
+6994  22E2     ADDWFC 0xFE2, F, ACCESS
+6998  FF7F     NOP
+699A  FFE7     NOP
+699C  2A03     INCF cyCh, F, ACCESS
+699E  0E0E     MOVLW 0xE
+69A0  6403     CPFSGT cyCh, ACCESS
+69A2  D7ED     BRA 0x697E
+69A4  0012     RETURN 0
+206:               }
+207:           }
+208:           
+209:           void buttonsSetMapByte1(uint8_t* map) {
+210:               uint8_t i;
+211:           
+212:               for (i = 0; i < N_BUTTONS; i++) {
+69A6  0E00     MOVLW 0x0
+69A8  6E03     MOVWF cyCh, ACCESS
+69C8  2A03     INCF cyCh, F, ACCESS
+213:                   buttonsMapByte1[i] = map[i];
+69AA  5003     MOVF cyCh, W, ACCESS
+69AC  2401     ADDWF __pcstackCOMRAM, W, ACCESS
+69AE  6ED9     MOVWF 0xFD9, ACCESS
+69B0  0E00     MOVLW 0x0
+69B2  2002     ADDWFC cxCh, W, ACCESS
+69B4  6EDA     MOVWF 0xFDA, ACCESS
+69B6  0EF0     MOVLW 0xF0
+69B8  2403     ADDWF cyCh, W, ACCESS
+69BA  6EE1     MOVWF 0xFE1, ACCESS
+69BC  6AE2     CLRF 0xFE2, ACCESS
+69BE  0E00     MOVLW 0x0
+69C0  22E2     ADDWFC 0xFE2, F, ACCESS
+69C4  FF7F     NOP
+69C6  FFE7     NOP
+69C8  2A03     INCF cyCh, F, ACCESS
+69CA  0E0E     MOVLW 0xE
+69CC  6403     CPFSGT cyCh, ACCESS
+69CE  D7ED     BRA 0x69AA
+69D0  0012     RETURN 0
+214:               }
+215:           }
+216:           
+217:           uint8_t* buttonsGetMapByte0(void) {
+218:               uint8_t i;
+219:           
+220:               for (i = 0; i < N_BUTTONS; i++) {
+6A5A  0E00     MOVLW 0x0
+6A5C  6E03     MOVWF cyCh, ACCESS
+6A7C  2A03     INCF cyCh, F, ACCESS
+6A7E  0E0E     MOVLW 0xE
+6A80  6403     CPFSGT cyCh, ACCESS
+6A82  D7ED     BRA 0x6A5E
+221:                   buttonsMessage[i] = buttonsMapByte0[i];
+6A5E  0E38     MOVLW 0x38
+6A60  2403     ADDWF cyCh, W, ACCESS
+6A62  6ED9     MOVWF 0xFD9, ACCESS
+6A64  6ADA     CLRF 0xFDA, ACCESS
+6A66  0E01     MOVLW 0x1
+6A68  22DA     ADDWFC 0xFDA, F, ACCESS
+6A6A  0E41     MOVLW 0x41
+6A6C  2403     ADDWF cyCh, W, ACCESS
+6A6E  6EE1     MOVWF 0xFE1, ACCESS
+6A70  6AE2     CLRF 0xFE2, ACCESS
+6A72  0E00     MOVLW 0x0
+6A74  22E2     ADDWFC 0xFE2, F, ACCESS
+6A78  FF7F     NOP
+6A7A  FFE7     NOP
+222:               }
+223:           
+224:               return buttonsMessage;
+6A84  0E41     MOVLW 0x41
+6A86  6E01     MOVWF __pcstackCOMRAM, ACCESS
+6A88  0E00     MOVLW 0x0
+6A8A  6E02     MOVWF cxCh, ACCESS
+225:           }
+6A8C  0012     RETURN 0
+226:           
+227:           uint8_t* buttonsGetMapByte1(void) {
+228:               uint8_t i;
+229:           
+230:               for (i = 0; i < N_BUTTONS; i++) {
+6A8E  0E00     MOVLW 0x0
+6A90  6E03     MOVWF cyCh, ACCESS
+6AB0  2A03     INCF cyCh, F, ACCESS
+6AB2  0E0E     MOVLW 0xE
+6AB4  6403     CPFSGT cyCh, ACCESS
+6AB6  D7ED     BRA 0x6A92
+231:                   buttonsMessage[i] = buttonsMapByte1[i];
+6A92  0EF0     MOVLW 0xF0
+6A94  2403     ADDWF cyCh, W, ACCESS
+6A96  6ED9     MOVWF 0xFD9, ACCESS
+6A98  6ADA     CLRF 0xFDA, ACCESS
+6A9A  0E00     MOVLW 0x0
+6A9C  22DA     ADDWFC 0xFDA, F, ACCESS
+6A9E  0E41     MOVLW 0x41
+6AA0  2403     ADDWF cyCh, W, ACCESS
+6AA2  6EE1     MOVWF 0xFE1, ACCESS
+6AA4  6AE2     CLRF 0xFE2, ACCESS
+6AA6  0E00     MOVLW 0x0
+6AA8  22E2     ADDWFC 0xFE2, F, ACCESS
+6AAC  FF7F     NOP
+6AAE  FFE7     NOP
+232:               }
+233:           
+234:               return buttonsMessage;
+6AB8  0E41     MOVLW 0x41
+6ABA  6E01     MOVWF __pcstackCOMRAM, ACCESS
+6ABC  0E00     MOVLW 0x0
+6ABE  6E02     MOVWF cxCh, ACCESS
+235:           }
+6AC0  0012     RETURN 0
+236:           
+237:           void buttonsBuildLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t dzMode, uint8_t invert) {
+238:               int16_t i;
+239:               int16_t range = ((int16_t)maxVal - (int16_t)minVal) / 2;
+7476  5011     MOVF minVal, W, ACCESS
+7478  5C12     SUBWF maxVal, W, ACCESS
+747A  6E07     MOVWF p, ACCESS
+747C  6A08     CLRF sxCh, ACCESS
+747E  A0D8     BTFSS 0xFD8, 0, ACCESS
+7480  0608     DECF sxCh, F, ACCESS
+7482  0E00     MOVLW 0x0
+7484  6E0A     MOVWF 0xA, ACCESS
+7486  0E02     MOVLW 0x2
+7488  6E09     MOVWF i, ACCESS
+748A  EC4F     CALL 0x6E9E, 0
+748C  F037     NOP
+7490  F01C     NOP
+7492  F01C     NOP
+7496  F020     NOP
+7498  F01D     NOP
+240:           
+241:               for (i = 0; i < 256; i++) {
+749A  0E00     MOVLW 0x0
+749C  6E21     MOVWF 0x21, ACCESS
+749E  0E00     MOVLW 0x0
+74A0  6E20     MOVWF i, ACCESS
+7618  4A20     INFSNZ i, F, ACCESS
+242:                   int16_t radius = i - origin;
+74A2  5013     MOVF origin, W, ACCESS
+74A4  5C20     SUBWF i, W, ACCESS
+74A6  6E22     MOVWF radius, ACCESS
+74A8  5021     MOVF 0x21, W, ACCESS
+74AA  A0D8     BTFSS 0xFD8, 0, ACCESS
+74AC  0421     DECF 0x21, W, ACCESS
+74AE  6E23     MOVWF 0x23, ACCESS
+243:                   if (invert) radius = -radius;
+74B0  5016     MOVF invert, W, ACCESS
+74B2  B4D8     BTFSC 0xFD8, 2, ACCESS
+74B4  D004     BRA 0x74BE
+74B6  6C22     NEGF radius, ACCESS
+74B8  1E23     COMF 0x23, F, ACCESS
+74BA  B0D8     BTFSC 0xFD8, 0, ACCESS
+74BC  2A23     INCF 0x23, F, ACCESS
+244:                   if (ABS(radius) < (int16_t)dz) {
+74BE  AE23     BTFSS 0x23, 7, ACCESS
+74C0  D011     BRA 0x74E4
+74C4  F088     NOP
+74C6  F017     NOP
+74CA  F08C     NOP
+74CC  F018     NOP
+74CE  1E17     COMF 0x17, F, ACCESS
+74D0  1E18     COMF 0x18, F, ACCESS
+74D2  4A17     INFSNZ 0x17, F, ACCESS
+74D4  2A18     INCF 0x18, F, ACCESS
+74D8  F05C     NOP
+74DA  F01A     NOP
+74DE  F060     NOP
+74E0  F01B     NOP
+74E2  D006     BRA 0x74F0
+74E6  F088     NOP
+74E8  F01A     NOP
+74EC  F08C     NOP
+74EE  F01B     NOP
+74F0  5014     MOVF dz, W, ACCESS
+74F2  6E17     MOVWF 0x17, ACCESS
+74F4  6A18     CLRF 0x18, ACCESS
+74F6  5017     MOVF 0x17, W, ACCESS
+74F8  5C1A     SUBWF 0x1A, W, ACCESS
+74FA  501B     MOVF 0x1B, W, ACCESS
+74FC  0A80     XORLW 0x80
+74FE  6E19     MOVWF 0x19, ACCESS
+7500  5018     MOVF 0x18, W, ACCESS
+7502  0A80     XORLW 0x80
+7504  5819     SUBWFB 0x19, W, ACCESS
+7506  B0D8     BTFSC 0xFD8, 0, ACCESS
+7508  D009     BRA 0x751C
+245:                       LUT[i] = 0x80;
+750A  5020     MOVF i, W, ACCESS
+750C  240F     ADDWF idx, W, ACCESS
+750E  6ED9     MOVWF 0xFD9, ACCESS
+7510  5021     MOVF 0x21, W, ACCESS
+7512  2010     ADDWFC leftToSend, W, ACCESS
+7514  6EDA     MOVWF 0xFDA, ACCESS
+7516  0E80     MOVLW 0x80
+7518  6EDF     MOVWF 0xFDF, ACCESS
+246:                   } else {
+751A  D07E     BRA 0x7618
+247:                       int16_t tempVal;
+248:                       if (dzMode == DZ_MODE_RADIAL) {
+751C  5015     MOVF dzMode, W, ACCESS
+751E  A4D8     BTFSS 0xFD8, 2, ACCESS
+7520  D01B     BRA 0x7558
+249:                           tempVal = radius * 127 / range;
+7524  F088     NOP
+7526  F001     NOP
+752A  F08C     NOP
+752C  F002     NOP
+752E  0E00     MOVLW 0x0
+7530  6E04     MOVWF i, ACCESS
+7532  0E7F     MOVLW 0x7F
+7534  6E03     MOVWF cyCh, ACCESS
+7536  ECFF     CALL 0x69FE, 0
+7538  F034     NOP
+753C  F004     NOP
+753E  F007     NOP
+7542  F008     NOP
+7544  F008     NOP
+7548  F070     NOP
+754A  F009     NOP
+754E  F074     NOP
+7550  F00A     NOP
+7552  EC4F     CALL 0x6E9E, 0
+7554  F037     NOP
+7556  D03F     BRA 0x75D6
+250:                       } else {
+251:                           if (radius > 0)
+7558  BE23     BTFSC 0x23, 7, ACCESS
+755A  D022     BRA 0x75A0
+755C  5023     MOVF 0x23, W, ACCESS
+755E  E103     BNZ 0x7566
+7560  0422     DECF radius, W, ACCESS
+7562  A0D8     BTFSS 0xFD8, 0, ACCESS
+7564  D01D     BRA 0x75A0
+252:                               tempVal = (radius - dz) * 127 / (range - dz);
+7566  5014     MOVF dz, W, ACCESS
+7568  5C22     SUBWF radius, W, ACCESS
+756A  6E01     MOVWF __pcstackCOMRAM, ACCESS
+756C  5023     MOVF 0x23, W, ACCESS
+756E  A0D8     BTFSS 0xFD8, 0, ACCESS
+7570  0423     DECF 0x23, W, ACCESS
+7572  6E02     MOVWF cxCh, ACCESS
+7574  0E00     MOVLW 0x0
+7576  6E04     MOVWF i, ACCESS
+7578  0E7F     MOVLW 0x7F
+757A  6E03     MOVWF cyCh, ACCESS
+757C  ECFF     CALL 0x69FE, 0
+757E  F034     NOP
+7582  F004     NOP
+7584  F007     NOP
+7588  F008     NOP
+758A  F008     NOP
+758C  5014     MOVF dz, W, ACCESS
+758E  5C1C     SUBWF range, W, ACCESS
+7590  6E09     MOVWF i, ACCESS
+7592  501D     MOVF 0x1D, W, ACCESS
+7594  A0D8     BTFSS 0xFD8, 0, ACCESS
+7596  041D     DECF 0x1D, W, ACCESS
+7598  6E0A     MOVWF 0xA, ACCESS
+759A  EC4F     CALL 0x6E9E, 0
+759C  F037     NOP
+759E  D01B     BRA 0x75D6
+253:                           else
+254:                               tempVal = (radius + dz) * 127 / (range - dz);
+75A0  5014     MOVF dz, W, ACCESS
+75A2  2422     ADDWF radius, W, ACCESS
+75A4  6E01     MOVWF __pcstackCOMRAM, ACCESS
+75A6  0E00     MOVLW 0x0
+75A8  2023     ADDWFC 0x23, W, ACCESS
+75AA  6E02     MOVWF cxCh, ACCESS
+75AC  0E00     MOVLW 0x0
+75AE  6E04     MOVWF i, ACCESS
+75B0  0E7F     MOVLW 0x7F
+75B2  6E03     MOVWF cyCh, ACCESS
+75B4  ECFF     CALL 0x69FE, 0
+75B6  F034     NOP
+75BA  F004     NOP
+75BC  F007     NOP
+75C0  F008     NOP
+75C2  F008     NOP
+75C4  5014     MOVF dz, W, ACCESS
+75C6  5C1C     SUBWF range, W, ACCESS
+75C8  6E09     MOVWF i, ACCESS
+75CA  501D     MOVF 0x1D, W, ACCESS
+75CC  A0D8     BTFSS 0xFD8, 0, ACCESS
+75CE  041D     DECF 0x1D, W, ACCESS
+75D0  6E0A     MOVWF 0xA, ACCESS
+75D2  EC4F     CALL 0x6E9E, 0
+75D4  F037     NOP
+75D8  F01C     NOP
+75DA  F01E     NOP
+75DE  F020     NOP
+75E0  F01F     NOP
+255:                       }
+256:                       tempVal += 128;
+75E2  0E80     MOVLW 0x80
+75E4  261E     ADDWF tempVal, F, ACCESS
+75E6  0E00     MOVLW 0x0
+75E8  221F     ADDWFC 0x1F, F, ACCESS
+257:                       if (tempVal < 0) tempVal = 0;
+75EA  AE1F     BTFSS 0x1F, 7, ACCESS
+75EC  D004     BRA 0x75F6
+75EE  0E00     MOVLW 0x0
+75F0  6E1F     MOVWF 0x1F, ACCESS
+75F2  0E00     MOVLW 0x0
+75F4  6E1E     MOVWF tempVal, ACCESS
+258:                       if (tempVal > 0xFF) tempVal = 0xFF;
+75F6  BE1F     BTFSC 0x1F, 7, ACCESS
+75F8  D006     BRA 0x7606
+75FA  041F     DECF 0x1F, W, ACCESS
+75FC  A0D8     BTFSS 0xFD8, 0, ACCESS
+75FE  D003     BRA 0x7606
+7600  0E00     MOVLW 0x0
+7602  6E1F     MOVWF 0x1F, ACCESS
+7604  681E     SETF tempVal, ACCESS
+259:                       LUT[i] = (uint8_t)tempVal & 0xFFU;
+7606  5020     MOVF i, W, ACCESS
+7608  240F     ADDWF idx, W, ACCESS
+760A  6ED9     MOVWF 0xFD9, ACCESS
+760C  5021     MOVF 0x21, W, ACCESS
+760E  2010     ADDWFC leftToSend, W, ACCESS
+7610  6EDA     MOVWF 0xFDA, ACCESS
+7614  F07B     NOP
+7616  FFDF     NOP
+7618  4A20     INFSNZ i, F, ACCESS
+761A  2A21     INCF 0x21, F, ACCESS
+761C  BE21     BTFSC 0x21, 7, ACCESS
+761E  D741     BRA 0x74A2
+7620  0421     DECF 0x21, W, ACCESS
+7622  B0D8     BTFSC 0xFD8, 0, ACCESS
+7624  0012     RETURN 0
+7626  D73D     BRA 0x74A2
+260:                   }
+261:               }
+262:           }
+263:           
+264:           void buttonsBuildLUTs(void) {
+265:               buttonsBuildLUT(LUT_SX, config.SXMin, config.SXMax, ADC_SX, config.SDeadzone, config.deadzoneMode, config.SXInvert);
+705C  0E00     MOVLW 0x0
+705E  6E0F     MOVWF idx, ACCESS
+7060  0E04     MOVLW 0x4
+7062  6E10     MOVWF leftToSend, ACCESS
+7066  F498     NOP
+7068  F011     NOP
+706C  F49C     NOP
+706E  F012     NOP
+7072  F124     NOP
+7074  F013     NOP
+7078  F4CC     NOP
+707A  F014     NOP
+707E  F4D4     NOP
+7080  F015     NOP
+7082  0101     MOVLB 0x1
+7084  0E00     MOVLW 0x0
+7086  B132     BTFSC 0x32, 0, BANKED
+7088  0E01     MOVLW 0x1
+708A  6E16     MOVWF invert, ACCESS
+708C  EC3B     CALL 0x7476, 0
+708E  F03A     NOP
+266:               buttonsBuildLUT(LUT_SY, config.SYMin, config.SYMax, ADC_SY, config.SDeadzone, config.deadzoneMode, config.SYInvert);
+7090  0E00     MOVLW 0x0
+7092  6E0F     MOVWF idx, ACCESS
+7094  0E05     MOVLW 0x5
+7096  6E10     MOVWF leftToSend, ACCESS
+709A  F4A0     NOP
+709C  F011     NOP
+70A0  F4A4     NOP
+70A2  F012     NOP
+70A6  F128     NOP
+70A8  F013     NOP
+70AC  F4CC     NOP
+70AE  F014     NOP
+70B2  F4D4     NOP
+70B4  F015     NOP
+70B6  0101     MOVLB 0x1
+70B8  0E00     MOVLW 0x0
+70BA  B332     BTFSC 0x32, 1, BANKED
+70BC  0E01     MOVLW 0x1
+70BE  6E16     MOVWF invert, ACCESS
+70C0  EC3B     CALL 0x7476, 0
+70C2  F03A     NOP
+267:               buttonsBuildLUT(LUT_CX, config.CXMin, config.CXMax, ADC_CX, config.CDeadzone, config.deadzoneMode, config.CXInvert);
+70C4  0E00     MOVLW 0x0
+70C6  6E0F     MOVWF idx, ACCESS
+70C8  0E02     MOVLW 0x2
+70CA  6E10     MOVWF leftToSend, ACCESS
+70CE  F4A8     NOP
+70D0  F011     NOP
+70D4  F4AC     NOP
+70D6  F012     NOP
+70DA  F12C     NOP
+70DC  F013     NOP
+70E0  F4D0     NOP
+70E2  F014     NOP
+70E6  F4D4     NOP
+70E8  F015     NOP
+70EA  0101     MOVLB 0x1
+70EC  0E00     MOVLW 0x0
+70EE  B532     BTFSC 0x32, 2, BANKED
+70F0  0E01     MOVLW 0x1
+70F2  6E16     MOVWF invert, ACCESS
+70F4  EC3B     CALL 0x7476, 0
+70F6  F03A     NOP
+268:               buttonsBuildLUT(LUT_CY, config.CYMin, config.CYMax, ADC_CY, config.CDeadzone, config.deadzoneMode, config.CYInvert);
+70F8  0E00     MOVLW 0x0
+70FA  6E0F     MOVWF idx, ACCESS
+70FC  0E03     MOVLW 0x3
+70FE  6E10     MOVWF leftToSend, ACCESS
+7102  F4B0     NOP
+7104  F011     NOP
+7108  F4B4     NOP
+710A  F012     NOP
+710E  F130     NOP
+7110  F013     NOP
+7114  F4D0     NOP
+7116  F014     NOP
+711A  F4D4     NOP
+711C  F015     NOP
+711E  0101     MOVLB 0x1
+7120  0E00     MOVLW 0x0
+7122  B732     BTFSC 0x32, 3, BANKED
+7124  0E01     MOVLW 0x1
+7126  6E16     MOVWF invert, ACCESS
+7128  EC3B     CALL 0x7476, 0
+712A  F03A     NOP
+269:           }
+712C  0012     RETURN 0
+---  /Users/aurelio/Programmazione/gcplus2-0/GCPlus2.0.X/adc.c  -----------------------------------------
+1:             /*
+2:                 File:           adc.c
+3:                 Description:    This source implements the needed routines to gather data from the analog inputs.
+4:                                 Every transfer is handled by DMA modules to reduce the load on the CPU.
+5:                                 This system automatically scans all the channels specified in ADCChannels.
+6:             */
+7:             
+8:             #include <xc.h>
+9:             #include <stdint.h>
+10:            #include <stdbool.h>
+11:            #include "adc.h"
+12:            
+13:            uint8_t ADCChannels[ADC_NCHANNELS] = {
+14:                //SX, SY,   CX,   CY,   R,   L
+15:                0x02, 0x03, 0x00, 0x01, 0x13, 0x14
+16:            };
+17:            
+18:            uint8_t ADCValues[ADC_NCHANNELS] = {
+19:                0x80, 0x80, 0x80, 0x80, 0x00, 0x00
+20:            };
+21:            
+22:            void ADCInit(uint8_t sxCh, uint8_t syCh, uint8_t cxCh, uint8_t cyCh) {
+7628  6E08     MOVWF sxCh, ACCESS
+23:                uint8_t i;
+24:            
+25:                //Setup ADC. On each interrupt the averaged 8bit result will be in ADFLTRH
+26:                ADCON0 = 0x80;  //ADC enabled. Continuous operation.
+762A  0E80     MOVLW 0x80
+762C  013E     MOVLB 0x3E
+762E  6FF8     MOVWF 0xF8, BANKED
+27:                                //Left justified. Will be retriggered by DMA1.
+28:                ADCON1 = 0x00;
+7630  0E00     MOVLW 0x0
+7632  6FF9     MOVWF 0xF9, BANKED
+29:                ADCON2 = 0x03;  //Burst Average mode
+7634  0E03     MOVLW 0x3
+7636  6FFA     MOVWF 0xFA, BANKED
+30:                ADCON2bits.CRS = 6; //ADFLTR = ACC >> CRS
+7638  51FA     MOVF 0xFA, W, BANKED
+763A  0B8F     ANDLW 0x8F
+763C  0960     IORLW 0x60
+763E  6FFA     MOVWF 0xFA, BANKED
+31:                ADCON3 = 0x07; //Interrupt regardless of threshold test results
+7640  0E07     MOVLW 0x7
+7642  6FFB     MOVWF 0xFB, BANKED
+32:                ADCLK = 0x3F;
+7644  0E3F     MOVLW 0x3F
+7646  6FFF     MOVWF 0xFF, BANKED
+33:                ADREF = 0x00;
+7648  0E00     MOVLW 0x0
+764A  6FFD     MOVWF 0xFD, BANKED
+34:                ADACQL = 0xFF;
+764C  69F3     SETF 0xF3, BANKED
+35:                //ADPREL = 0xFF;
+36:                ADRPT = 4;     //Average on 4 samples
+764E  0E04     MOVLW 0x4
+7650  6FEC     MOVWF gcpLocked, BANKED
+37:                ADACT = 0x1D;   //Trigger on each write to ADPCH
+7652  0E1D     MOVLW 0x1D
+7654  6FFE     MOVWF 0xFE, BANKED
+38:            
+39:                //Enable charge pump
+40:                ADCPbits.CPON = 1;
+7656  8FD7     BSF 0xD7, 7, BANKED
+41:                while (!ADCPbits.CPRDY);
+7658  A1D7     BTFSS 0xD7, 0, BANKED
+765A  D7FE     BRA 0x7658
+42:            
+43:                ADCChannels[0] = sxCh;
+765E  F020     NOP
+7660  F04F     NOP
+44:                ADCChannels[1] = syCh;
+7664  F004     NOP
+7666  F050     NOP
+45:                ADCChannels[2] = cxCh;
+766A  F008     NOP
+766C  F051     NOP
+46:                ADCChannels[3] = cyCh;
+7670  F00C     NOP
+7672  F052     NOP
+47:            
+48:                //Read each channel once
+49:                ADTIF = 0;
+7674  0139     MOVLB 0x39
+7676  97A1     BCF 0xA1, 3, BANKED
+50:                for (i = 0; i < ADC_NCHANNELS; i++) {
+7678  0E00     MOVLW 0x0
+767A  6E09     MOVWF i, ACCESS
+76A8  2A09     INCF i, F, ACCESS
+76AA  0E05     MOVLW 0x5
+76AC  6409     CPFSGT i, ACCESS
+76AE  D7E6     BRA 0x767C
+51:                    ADPCH = ADCChannels[i];
+767C  0E4F     MOVLW 0x4F
+767E  2409     ADDWF i, W, ACCESS
+7680  6ED9     MOVWF 0xFD9, ACCESS
+7682  6ADA     CLRF 0xFDA, ACCESS
+7684  0E00     MOVLW 0x0
+7686  22DA     ADDWFC 0xFDA, F, ACCESS
+7688  50DF     MOVF 0xFDF, W, ACCESS
+768A  013E     MOVLB 0x3E
+768C  6FF1     MOVWF 0xF1, BANKED
+52:                    while(!ADTIF);
+768E  0139     MOVLB 0x39
+7690  A7A1     BTFSS 0xA1, 3, BANKED
+7692  D7FD     BRA 0x768E
+53:                    ADTIF = 0;
+7694  97A1     BCF 0xA1, 3, BANKED
+54:                    ADCValues[i] = ADFLTRL;
+7696  0E49     MOVLW 0x49
+7698  2409     ADDWF i, W, ACCESS
+769A  6ED9     MOVWF 0xFD9, ACCESS
+769C  6ADA     CLRF 0xFDA, ACCESS
+769E  0E00     MOVLW 0x0
+76A0  22DA     ADDWFC 0xFDA, F, ACCESS
+76A4  FB9B     NOP
+76A6  FFDF     NOP
+55:                }
+56:            
+57:                //Unlock
+58:                asm ("banksel PRLOCK");
+76B0  0139     MOVLB 0x39
+59:                asm ("movlw 0x55");
+76B2  0E55     MOVLW 0x55
+60:                asm ("movwf PRLOCK");
+76B4  6FEF     MOVWF 0xEF, BANKED
+61:                asm ("movlw 0xAA");
+76B6  0EAA     MOVLW 0xAA
+62:                asm ("movwf PRLOCK");
+76B8  6FEF     MOVWF 0xEF, BANKED
+63:                asm ("bsf PRLOCK, 0");
+76BA  81EF     BSF 0xEF, 0, BANKED
+64:            
+65:                //Setup DMA1 to copy from ADCChannels to ADPCH on DMA2SCNTIF
+66:                DMA1SSAU = ((uint32_t)ADCChannels >> 16) & 0xFF;
+76BC  0E4F     MOVLW 0x4F
+76BE  6E04     MOVWF i, ACCESS
+76C0  0E00     MOVLW 0x0
+76C2  6E05     MOVWF i, ACCESS
+76C4  6A06     CLRF la, ACCESS
+76C6  6A07     CLRF p, ACCESS
+76C8  0E11     MOVLW 0x11
+76CA  D005     BRA 0x76D6
+76CC  90D8     BCF 0xFD8, 0, ACCESS
+76CE  3207     RRCF p, F, ACCESS
+76D0  3206     RRCF la, F, ACCESS
+76D2  3205     RRCF i, F, ACCESS
+76D4  3204     RRCF i, F, ACCESS
+76D6  2EE8     DECFSZ 0xFE8, F, ACCESS
+76D8  D7F9     BRA 0x76CC
+76DA  5004     MOVF i, W, ACCESS
+76DC  013B     MOVLB 0x3B
+76DE  6FFB     MOVWF 0xFB, BANKED
+67:                DMA1SSAH = ((uint32_t)ADCChannels >> 8) & 0xFF;
+76E0  0E4F     MOVLW 0x4F
+76E2  6E04     MOVWF i, ACCESS
+76E4  0E00     MOVLW 0x0
+76E6  6E05     MOVWF i, ACCESS
+76E8  6A06     CLRF la, ACCESS
+76EA  6A07     CLRF p, ACCESS
+76EE  F014     NOP
+76F0  F004     NOP
+76F4  F018     NOP
+76F6  F005     NOP
+76FA  F01C     NOP
+76FC  F006     NOP
+76FE  6A07     CLRF p, ACCESS
+7700  5004     MOVF i, W, ACCESS
+7702  6FFA     MOVWF 0xFA, BANKED
+68:                DMA1SSAL = ((uint32_t)ADCChannels) & 0xFF;
+7704  0E4F     MOVLW 0x4F
+7706  6FF9     MOVWF 0xF9, BANKED
+69:                DMA1DSAH = ((uint32_t)&ADPCH >> 8) & 0xFF;
+7708  0EF1     MOVLW 0xF1
+770A  6E04     MOVWF i, ACCESS
+770C  0E3E     MOVLW 0x3E
+770E  6E05     MOVWF i, ACCESS
+7710  6A06     CLRF la, ACCESS
+7712  6A07     CLRF p, ACCESS
+7716  F014     NOP
+7718  F004     NOP
+771C  F018     NOP
+771E  F005     NOP
+7722  F01C     NOP
+7724  F006     NOP
+7726  6A07     CLRF p, ACCESS
+7728  5004     MOVF i, W, ACCESS
+772A  6FF1     MOVWF 0xF1, BANKED
+70:                DMA1DSAL = ((uint32_t)&ADPCH) & 0xFF;
+772C  0EF1     MOVLW 0xF1
+772E  6FF0     MOVWF buttonsMapByte1, BANKED
+71:                DMA1SSZH = 0x00;
+7730  0E00     MOVLW 0x0
+7732  6FF8     MOVWF 0xF8, BANKED
+72:                DMA1SSZL = ADC_NCHANNELS;
+7734  0E06     MOVLW 0x6
+7736  6FF7     MOVWF 0xF7, BANKED
+73:                DMA1DSZH = 0x00;
+7738  0E00     MOVLW 0x0
+773A  6FEF     MOVWF 0xEF, BANKED
+74:                DMA1DSZL = 0x01;
+773C  0E01     MOVLW 0x1
+773E  6FEE     MOVWF 0xEE, BANKED
+75:                DMA1SIRQ = 42;  //DMA2SCNT
+7740  0E2A     MOVLW 0x2A
+7742  6FFF     MOVWF 0xFF, BANKED
+76:                DMA1CON1bits.DMODE = 0b00; //DMA1DPTR remains unchanged after each transfer completion
+7744  0E3F     MOVLW 0x3F
+7746  17FD     ANDWF 0xFD, F, BANKED
+77:                DMA1CON1bits.DSTP = 0;      //SIRQEN bit is not cleared when Destination Counter reloads
+7748  9BFD     BCF 0xFD, 5, BANKED
+78:                DMA1CON1bits.SMR = 0b00;    //DMA1SSA points to SFR/GPR Data Space
+774A  0EE7     MOVLW 0xE7
+774C  17FD     ANDWF 0xFD, F, BANKED
+79:                DMA1CON1bits.SMODE = 0b01;  //DMA1SPTR is incremented after each transfer completion
+774E  51FD     MOVF 0xFD, W, BANKED
+7750  0BF9     ANDLW 0xF9
+7752  0902     IORLW 0x2
+7754  6FFD     MOVWF 0xFD, BANKED
+80:                DMA1CON1bits.SSTP = 0;      //SIRQEN bit is not cleared when Source Counter reloads
+7756  91FD     BCF 0xFD, 0, BANKED
+81:                DMA1CON0 = 0xC0; //Enable DMA1 module. SIRQEN = 1
+7758  0EC0     MOVLW 0xC0
+775A  6FFC     MOVWF 0xFC, BANKED
+82:            
+83:                //Setup DMA2 to copy from ADFLTRL to ADCValues on ADTIF
+84:                DMA2SSAU = 0;
+775C  0E00     MOVLW 0x0
+775E  6FDB     MOVWF 0xDB, BANKED
+85:                DMA2SSAH = ((uint32_t)&ADFLTRL >> 8) & 0xFF;
+7760  0EE6     MOVLW 0xE6
+7762  6E04     MOVWF i, ACCESS
+7764  0E3E     MOVLW 0x3E
+7766  6E05     MOVWF i, ACCESS
+7768  6A06     CLRF la, ACCESS
+776A  6A07     CLRF p, ACCESS
+776E  F014     NOP
+7770  F004     NOP
+7774  F018     NOP
+7776  F005     NOP
+777A  F01C     NOP
+777C  F006     NOP
+777E  6A07     CLRF p, ACCESS
+7780  5004     MOVF i, W, ACCESS
+7782  6FDA     MOVWF 0xDA, BANKED
+86:                DMA2SSAL = ((uint32_t)&ADFLTRL) & 0xFF;
+7784  0EE6     MOVLW 0xE6
+7786  6FD9     MOVWF 0xD9, BANKED
+87:                DMA2DSAH = ((uint32_t)ADCValues >> 8) & 0xFF;
+7788  0E49     MOVLW 0x49
+778A  6E04     MOVWF i, ACCESS
+778C  0E00     MOVLW 0x0
+778E  6E05     MOVWF i, ACCESS
+7790  6A06     CLRF la, ACCESS
+7792  6A07     CLRF p, ACCESS
+7796  F014     NOP
+7798  F004     NOP
+779C  F018     NOP
+779E  F005     NOP
+77A2  F01C     NOP
+77A4  F006     NOP
+77A6  6A07     CLRF p, ACCESS
+77A8  5004     MOVF i, W, ACCESS
+77AA  6FD1     MOVWF 0xD1, BANKED
+88:                DMA2DSAL = ((uint32_t)ADCValues) & 0xFF;
+77AC  0E49     MOVLW 0x49
+77AE  6FD0     MOVWF 0xD0, BANKED
+89:                DMA2SSZH = 0x00;
+77B0  0E00     MOVLW 0x0
+77B2  6FD8     MOVWF 0xD8, BANKED
+90:                DMA2SSZL = 0x01;
+77B4  0E01     MOVLW 0x1
+77B6  6FD7     MOVWF 0xD7, BANKED
+91:                DMA2DSZH = 0x00;
+77B8  0E00     MOVLW 0x0
+77BA  6FCF     MOVWF 0xCF, BANKED
+92:                DMA2DSZL = ADC_NCHANNELS;
+77BC  0E06     MOVLW 0x6
+77BE  6FCE     MOVWF 0xCE, BANKED
+93:                DMA2SIRQ = 11;  //ADTIF
+77C0  0E0B     MOVLW 0xB
+77C2  6FDF     MOVWF 0xDF, BANKED
+94:                DMA2CON1bits.DMODE = 0b01; //DMA2DPTR is incremented after each transfer completion
+77C4  51DD     MOVF 0xDD, W, BANKED
+77C6  0B3F     ANDLW 0x3F
+77C8  0940     IORLW 0x40
+77CA  6FDD     MOVWF 0xDD, BANKED
+95:                DMA2CON1bits.DSTP = 0;      //SIRQEN bit is not cleared when Destination Counter reloads
+77CC  9BDD     BCF 0xDD, 5, BANKED
+96:                DMA2CON1bits.SMR = 0b00;    //DMA2SSA points to SFR/GPR Data Space
+77CE  0EE7     MOVLW 0xE7
+77D0  17DD     ANDWF 0xDD, F, BANKED
+97:                DMA2CON1bits.SMODE = 0b00;  //DMA2SPTR remains unchanged after each transfer completion
+77D2  0EF9     MOVLW 0xF9
+77D4  17DD     ANDWF 0xDD, F, BANKED
+98:                DMA2CON1bits.SSTP = 0;      //SIRQEN bit is not cleared when Source Counter reloads
+77D6  91DD     BCF 0xDD, 0, BANKED
+99:                DMA2CON0 = 0xC0; //Enable DMA2 module. SIRQEN = 1
+77D8  0EC0     MOVLW 0xC0
+77DA  6FDC     MOVWF 0xDC, BANKED
+100:           
+101:               DMA1CON0bits.DGO = 1; //Start ADC transfers
+77DC  8BFC     BSF 0xFC, 5, BANKED
+102:           }
+77DE  0012     RETURN 0
+---  /Applications/microchip/xc8/v2.05/pic/sources/c90/common/memset.c  ---------------------------------
+1:             #include	<string.h>
+2:             
+3:             #ifdef _PIC16
+4:             __far void *
+5:             memset(__far void * p1, int c, register size_t n)
+6:             #else /*  _PIC16 */
+7:             void *
+8:             memset(void * p1, int c, register size_t n)
+9:             #endif /* _PIC16 */
+10:            {
+11:            
+12:            #ifdef _PIC16
+13:            	register __far char *	p;
+14:            #else /*  _PIC16 */
+15:            	register char *		p;
+16:            #endif /* _PIC16 */
+17:            
+18:            	p = p1;
+6AC4  F004     NOP
+6AC6  F007     NOP
+6ACA  F008     NOP
+6ACC  F008     NOP
+19:            	while(n--)
+6ACE  D00B     BRA 0x6AE6
+6AE6  0605     DECF i, F, ACCESS
+20:            		*p++ = c;
+6AD2  F01F     NOP
+6AD4  FFD9     NOP
+6AD8  F023     NOP
+6ADA  FFDA     NOP
+6ADE  F00F     NOP
+6AE0  FFDF     NOP
+6AE2  4A07     INFSNZ p, F, ACCESS
+6AE4  2A08     INCF sxCh, F, ACCESS
+6AE6  0605     DECF i, F, ACCESS
+6AE8  A0D8     BTFSS 0xFD8, 0, ACCESS
+6AEA  0606     DECF la, F, ACCESS
+6AEC  2805     INCF i, W, ACCESS
+6AEE  E1F0     BNZ 0x6AD0
+6AF0  2806     INCF la, W, ACCESS
+6AF2  B4D8     BTFSC 0xFD8, 2, ACCESS
+6AF4  0012     RETURN 0
+6AF6  D7EC     BRA 0x6AD0
+21:            	return p1;
+22:            }
+---  /Applications/microchip/xc8/v2.05/pic/sources/c90/common/awdiv.c  ----------------------------------
+1:             // integer signed division
+2:             
+3:             signed int
+4:             #ifdef __PICC__
+5:             __awdiv(signed int divisor, signed int dividend)
+6:             #else
+7:             __awdiv(signed int dividend, signed int divisor)
+8:             #endif
+9:             {
+10:            	signed int	quotient;
+11:            	unsigned char	counter, sign;
+12:            
+13:            	sign = 0;
+6E9E  0E00     MOVLW 0x0
+6EA0  6E0C     MOVWF sign, ACCESS
+14:            	if(divisor < 0) {
+6EA2  AE0A     BTFSS 0xA, 7, ACCESS
+6EA4  D006     BRA 0x6EB2
+15:            		divisor = -divisor;
+6EA6  6C09     NEGF i, ACCESS
+6EA8  1E0A     COMF 0xA, F, ACCESS
+6EAA  B0D8     BTFSC 0xFD8, 0, ACCESS
+6EAC  2A0A     INCF 0xA, F, ACCESS
+16:            		sign = 1;
+6EAE  0E01     MOVLW 0x1
+6EB0  6E0C     MOVWF sign, ACCESS
+17:            	}
+18:            	if(dividend < 0) {
+6EB2  AE08     BTFSS sxCh, 7, ACCESS
+6EB4  D006     BRA 0x6EC2
+19:            		dividend = -dividend;
+6EB6  6C07     NEGF p, ACCESS
+6EB8  1E08     COMF sxCh, F, ACCESS
+6EBA  B0D8     BTFSC 0xFD8, 0, ACCESS
+6EBC  2A08     INCF sxCh, F, ACCESS
+20:            		sign ^= 1;
+6EBE  0E01     MOVLW 0x1
+6EC0  1A0C     XORWF sign, F, ACCESS
+21:            	}
+22:            	quotient = 0;
+6EC2  0E00     MOVLW 0x0
+6EC4  6E0E     MOVWF 0xE, ACCESS
+6EC6  0E00     MOVLW 0x0
+6EC8  6E0D     MOVWF quotient, ACCESS
+23:            	if(divisor != 0) {
+6ECA  5009     MOVF i, W, ACCESS
+6ECC  100A     IORWF 0xA, W, ACCESS
+6ECE  B4D8     BTFSC 0xFD8, 2, ACCESS
+6ED0  D01C     BRA 0x6F0A
+24:            		counter = 1;
+6ED2  0E01     MOVLW 0x1
+6ED4  6E0B     MOVWF i, ACCESS
+25:            		while((divisor & 0x8000U) == 0) {
+6ED6  D004     BRA 0x6EE0
+6EE0  AE0A     BTFSS 0xA, 7, ACCESS
+6EE2  D7FA     BRA 0x6ED8
+26:            			divisor <<= 1;
+6ED8  90D8     BCF 0xFD8, 0, ACCESS
+6EDA  3609     RLCF i, F, ACCESS
+6EDC  360A     RLCF 0xA, F, ACCESS
+27:            			counter++;
+6EDE  2A0B     INCF i, F, ACCESS
+28:            		}
+29:            		do {
+30:            			quotient <<= 1;
+6EE4  90D8     BCF 0xFD8, 0, ACCESS
+6EE6  360D     RLCF quotient, F, ACCESS
+6EE8  360E     RLCF 0xE, F, ACCESS
+31:            			if((unsigned int)divisor <= (unsigned int)dividend) {
+6EEA  5009     MOVF i, W, ACCESS
+6EEC  5C07     SUBWF p, W, ACCESS
+6EEE  500A     MOVF 0xA, W, ACCESS
+6EF0  5808     SUBWFB sxCh, W, ACCESS
+6EF2  A0D8     BTFSS 0xFD8, 0, ACCESS
+6EF4  D005     BRA 0x6F00
+32:            				dividend -= divisor;
+6EF6  5009     MOVF i, W, ACCESS
+6EF8  5E07     SUBWF p, F, ACCESS
+6EFA  500A     MOVF 0xA, W, ACCESS
+6EFC  5A08     SUBWFB sxCh, F, ACCESS
+33:            				quotient |= 1;
+6EFE  800D     BSF quotient, 0, ACCESS
+34:            			}
+35:            			*(unsigned int *)&divisor >>= 1;
+6F00  90D8     BCF 0xFD8, 0, ACCESS
+6F02  320A     RRCF 0xA, F, ACCESS
+6F04  3209     RRCF i, F, ACCESS
+36:            		} while(--counter != 0);
+6F06  2E0B     DECFSZ i, F, ACCESS
+6F08  D7ED     BRA 0x6EE4
+37:            	}
+38:            	if(sign)
+6F0A  500C     MOVF sign, W, ACCESS
+6F0C  B4D8     BTFSC 0xFD8, 2, ACCESS
+6F0E  D004     BRA 0x6F18
+39:            		quotient = -quotient;
+6F10  6C0D     NEGF quotient, ACCESS
+6F12  1E0E     COMF 0xE, F, ACCESS
+6F14  B0D8     BTFSC 0xFD8, 0, ACCESS
+6F16  2A0E     INCF 0xE, F, ACCESS
+40:            	return quotient;
+6F1A  F034     NOP
+6F1C  F007     NOP
+6F20  F038     NOP
+6F22  F008     NOP
+41:            }
+6F24  0012     RETURN 0
+---  /Applications/microchip/xc8/v2.05/pic/sources/c90/common/Umul16.c  ---------------------------------
+1:             // 16 x 16 bit multiplication with 16 bit result
+2:             #ifdef _PIC18
+3:             #define _Has_hardware_multiply 1
+4:             #else
+5:             #define _Has_hardware_multiply 0
+6:             #endif
+7:             
+8:             #if defined(_PIC14E) || defined(_PIC14EX) || defined(_PIC18)
+9:             #define _Has_large_call_stack 1
+10:            #else
+11:            #define _Has_large_call_stack 0
+12:            #endif
+13:            
+14:            unsigned int
+15:            __wmul(unsigned int multiplier, unsigned int multiplicand)
+16:            {
+17:                    unsigned int product;
+18:            
+19:            #if _Has_hardware_multiply || _Has_large_call_stack
+20:            
+21:            #define LOWBYTE(x)  (*(unsigned char *)(&x))
+22:            #define HIGHBYTE(x) (*(((unsigned char *)(&x))+1))
+23:            
+24:            	// optimized to allow use of the 8 x 8 bit hardware multiply instruction
+25:            /*
+26:            a 16-bit multiply can be decomposed into the sum of three 8-bit multiplies
+27:                   a  b
+28:            *      c  d
+29:            -----------
+30:                 |   bd
+31:                 |ad  0
+32:                 |bc  0
+33:            +  ac| 0  0 (we ignore this intermediate product
+34:                         because it does not affect the low 16 bits of the result)
+35:            ===========
+36:             */
+37:                    product =  LOWBYTE(multiplier) * LOWBYTE(multiplicand);
+69FE  5001     MOVF __pcstackCOMRAM, W, ACCESS
+6A00  0203     MULWF cyCh, ACCESS
+6A04  FFCC     NOP
+6A06  F005     NOP
+6A0A  FFD0     NOP
+6A0C  F006     NOP
+38:                    product += (LOWBYTE(multiplier) * HIGHBYTE(multiplicand)) << 8;
+6A0E  5001     MOVF __pcstackCOMRAM, W, ACCESS
+6A10  0204     MULWF i, ACCESS
+6A12  50F3     MOVF 0xFF3, W, ACCESS
+6A14  2606     ADDWF la, F, ACCESS
+39:                    product += (HIGHBYTE(multiplier) * LOWBYTE(multiplicand)) << 8;
+6A16  5002     MOVF cxCh, W, ACCESS
+6A18  0203     MULWF cyCh, ACCESS
+6A1A  50F3     MOVF 0xFF3, W, ACCESS
+6A1C  2606     ADDWF la, F, ACCESS
+40:            
+41:            #else
+42:            
+43:            	product = 0;
+44:            	do {
+45:            		if(multiplier & 1)
+46:            			product += multiplicand;
+47:            		multiplicand <<= 1;
+48:            		multiplier >>= 1;
+49:            	} while(multiplier != 0);
+50:            
+51:            #endif
+52:                    return product;
+6A20  F014     NOP
+6A22  F001     NOP
+6A26  F018     NOP
+6A28  F002     NOP
+53:            }
+6A2A  0012     RETURN 0
