@@ -10,11 +10,7 @@
 #include <math.h>
 #include <time.h>
 
-#include "gfx.h"
-#include "draw.h"
-#include "font.h"
-#include "animation.h"
-#include "vector2.h"
+#include <libbbgui.h>
 
 #include "Menlo-Regular_ttf.h"
 #include "SFMono-Regular_otf.h"
@@ -31,19 +27,50 @@ u8 mainMenuLoop(Font& font);
 
 int main(int argc, char **argv) {
     TPLFile tdf;
+    Vector2 screenSize;
     Gfx::init();
     PAD_Init();
     WPAD_Init();
-
     fatInitDefault();
 
     Font FSEX300(FSEX300_ttf, FSEX300_ttf_size, 20);
     Font menlo(Menlo_Regular_ttf, Menlo_Regular_ttf_size, 20);
     Font sfmono(SFMono_Regular_otf, SFMono_Regular_otf_size, 20);
 
+    if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) {
+        screenSize.x = 800;
+        screenSize.y = 480;
+    } else {
+        screenSize.x = 640;
+        screenSize.y = 480;
+    }
+
+    GuiWindow mainWindow(screenSize.x, screenSize.y);
+    //Top bar
+    GuiWindow topBar(screenSize.x, 68);
+    topBar.setColor(RGBA8(0x40, 0x40, 0x40, 0xFF));
+    GuiLabel topLabel(&sfmono, L"GC+2.0 configurator");
+    topBar.addElement(&topLabel, 12, 28);
+
+    //Bottom bar
+    GuiWindow bottomBar(screenSize.x, 44);
+    bottomBar.setColor(RGBA8(0x40, 0x40, 0x40, 0xFF));
+    GuiLabel bottomLabel(&sfmono, L"v1.0");
+    bottomBar.addElement(&bottomLabel, 12, 8);
+
+    mainWindow.addElement(&topBar, 0, 0);
+    mainWindow.addElement(&bottomBar, 0, 436);
+
     TPL_OpenTPLFromMemory(&tdf, (void*)textures_tpl, textures_tpl_size);
     Texture tex1 = createTextureFromTPL(&tdf, 0);
     Texture tex2 = createTextureFromTPL(&tdf, 1);
+
+    GuiImage img1(&tdf, 0);
+    GuiImage img2(&tdf, 1);
+    img1.setSize(128, 128);
+    img2.setSize(128, 128);
+    mainWindow.addElement(&img2, 100, 100);
+    mainWindow.addElement(&img1, 100, 100);
 
     Animation<Vector2> anim;
     Vector2 xy;
@@ -62,9 +89,9 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < 99; i++) {
         float x1 = 48 * cos(i * 2 * PI / 100);
-        float y1 = 48 * sin(i * 2 * PI / 100);
+        float y1 = -48 * sin(i * 2 * PI / 100);
         float x2 = 48 * cos((i + 1) * 2 * PI / 100);
-        float y2 = 48 * sin((i + 1) * 2 * PI / 100);
+        float y2 = -48 * sin((i + 1) * 2 * PI / 100);
         xy1 = Vector2(x1, y1);
         xy2 = Vector2(x2, y2);
         anim.addStep(millisecs_to_ticks(10), xy1, xy2);
@@ -89,11 +116,13 @@ int main(int argc, char **argv) {
         anim.animate();
 
         Gfx::startDrawing();
-        Gfx::pushMatrix();
+        /*Gfx::pushMatrix();
         Gfx::translate(100, 100);
         drawTextureResized(0, 0, 128, 128, tex2);
         drawTextureResized(xy[0], xy[1], 128, 128, tex1);
-        Gfx::popMatrix();
+        Gfx::popMatrix();*/
+        mainWindow.setElementPosition(&img1, 100 + xy.x, 100 + xy.y);
+        mainWindow.draw();
         Gfx::endDrawing();
 
         /*if (selected == 0) {
