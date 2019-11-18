@@ -56,6 +56,7 @@ void main(void) {
     char cmd[0x20];
     char msgAnswer[0x20];
     uint8_t gcpLocked = 1;
+    inButtons_t inBut;
 
     //Bootloader buffer stuff
     uint8_t flashBuffer[64];
@@ -74,22 +75,6 @@ void main(void) {
     OSCTUNE = 0x00;*/
 
     portsInit();
-
-    //Read buttons for boot combos
-    inButtons_t inBut;
-    inBut.PORTA = PORTA;
-    inBut.PORTB = PORTB;
-    inBut.PORTC = PORTC;
-
-    //Check if a payload is actually present
-    PGMReadBlock(PAYLOAD_ADDR, flashBuffer);
-    if ((flashBuffer[0] == 0x47) && (flashBuffer[1] == 0x43) && (flashBuffer[2] == 0x2B) && (flashBuffer[3] == 0x32)) {
-        //Boot to main payload unless X+Y+Z are all pressed
-        if (inBut.X || inBut.Y || inBut.Z) {
-            bootPayload();
-        }
-    }
-
     configInit();
     ADCInit(config.SXChan, config.SYChan, config.CXChan, config.CYChan);
     buttonsInit();
@@ -233,9 +218,14 @@ void main(void) {
                 break;
 
                 case GCP_CMD_BOOTBL:
-                    //We are already in bootloader. Send error
-                    msgAnswer[0] = GCP_ERR_WRONGMODE;
-                    SISendMessage(msgAnswer, 1);
+                    if (!gcpLocked) {
+                        msgAnswer[0] = GCP_ERR_NONE;
+                        SISendMessage(msgAnswer, 1);
+                        bootPayload();
+                    } else {
+                        msgAnswer[0] = GCP_ERR_LOCKED;
+                        SISendMessage(msgAnswer, 1);
+                    }
                 break;
 
                 case GCP_CMD_SETMAPBYTE0:
@@ -282,95 +272,6 @@ void main(void) {
                 case GCP_CMD_GETMAPBYTE1:
                     if (!gcpLocked) {
                         SISendMessage(buttonsGetMapByte1(), N_BUTTONS);
-                    } else {
-                        msgAnswer[0] = GCP_ERR_LOCKED;
-                        SISendMessage(msgAnswer, 1);
-                    }
-                break;
-
-                case GCP_CMD_RESETIDX:
-                    if (!gcpLocked) {
-                        flashBufferIdx = 0;
-                        msgAnswer[0] = GCP_ERR_NONE;
-                        SISendMessage(msgAnswer, 1);
-                    } else {
-                        msgAnswer[0] = GCP_ERR_LOCKED;
-                        SISendMessage(msgAnswer, 1);
-                    }
-                break;
-
-                case GCP_CMD_FILLBUFFER:
-                    if (!gcpLocked) {
-                        for (i = 1; i < cmdLen; i++) {
-                            flashBuffer[flashBufferIdx++] = cmd[i];
-                            flashBufferIdx &= 63;
-                        }
-                        msgAnswer[0] = GCP_ERR_NONE;
-                        SISendMessage(msgAnswer, 1);
-                    } else {
-                        msgAnswer[0] = GCP_ERR_LOCKED;
-                        SISendMessage(msgAnswer, 1);
-                    }
-                break;
-
-                case GCP_CMD_READBUFFER:
-                    if (!gcpLocked) {
-                        for (i = 0; i < 16; i++) {
-                            msgAnswer[i] = flashBuffer[flashBufferIdx++];
-                            flashBufferIdx &= 63;
-                        }
-                        SISendMessage(msgAnswer, 16);
-                    } else {
-                        msgAnswer[0] = GCP_ERR_LOCKED;
-                        SISendMessage(msgAnswer, 1);
-                    }
-                break;
-
-                case GCP_CMD_WRITEFLASH:
-                    if (!gcpLocked) {
-                        if (cmdLen == 3) {
-                            uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
-                            if (addr & 63) {
-                                msgAnswer[0] = GCP_ERR_WRONGARG;
-                                SISendMessage(msgAnswer, 1);
-                            } else {
-                                PGMEraseRow(addr);
-                                PGMWriteBlock(addr, flashBuffer);
-                                msgAnswer[0] = GCP_ERR_NONE;
-                                SISendMessage(msgAnswer, 1);
-                            }
-                        } else {
-                            msgAnswer[0] = GCP_ERR_WRONGARG;
-                            SISendMessage(msgAnswer, 1);
-                        }
-                    } else {
-                        msgAnswer[0] = GCP_ERR_LOCKED;
-                        SISendMessage(msgAnswer, 1);
-                    }
-                break;
-
-                case GCP_CMD_READFLASH:
-                    if (!gcpLocked) {
-                        if (cmdLen == 3) {
-                            uint16_t addr = cmd[1] | (((uint16_t)cmd[2]) << 8);
-                            PGMReadBlock(addr, flashBuffer);
-                            msgAnswer[0] = GCP_ERR_NONE;
-                            SISendMessage(msgAnswer, 1);
-                        } else {
-                            msgAnswer[0] = GCP_ERR_WRONGARG;
-                            SISendMessage(msgAnswer, 1);
-                        }
-                    } else {
-                        msgAnswer[0] = GCP_ERR_LOCKED;
-                        SISendMessage(msgAnswer, 1);
-                    }
-                break;
-
-                case GCP_CMD_BOOTPAYLOAD:
-                    if (!gcpLocked) {
-                        msgAnswer[0] = GCP_ERR_NONE;
-                        SISendMessage(msgAnswer, 1);
-                        bootPayload();
                     } else {
                         msgAnswer[0] = GCP_ERR_LOCKED;
                         SISendMessage(msgAnswer, 1);
@@ -428,11 +329,11 @@ void portsInit(void) {
     ODCONC = 0x00;
 }
 
-void bootPayload(void) {
+void bootBootloader(void) {
+    INTCON0 = 0x00; //Disable interrupts
     STKPTR = 0x00; //Clean up stack
-    uint16_t addr = PAYLOAD_ADDR + 4; //Skips header
-    IVTBASE = addr + 8; //Set interrupt base address
+    IVTBASE = 8; //Set interrupt base address
     PCLATU = 0x00;
-    PCLATH = (addr >> 8) & 0xFF;
-    PCL = addr & 0xFFUL;
+    PCLATH = 0x00;
+    PCL = 0x00;
 }

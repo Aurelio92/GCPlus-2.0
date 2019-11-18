@@ -85,10 +85,13 @@ void main(void) {
     PGMReadBlock(PAYLOAD_ADDR, flashBuffer);
     if ((flashBuffer[0] == 0x47) && (flashBuffer[1] == 0x43) && (flashBuffer[2] == 0x2B) && (flashBuffer[3] == 0x32)) {
         //Boot to main payload unless X+Y+Z are all pressed
-        if (inBut.X || inBut.Y || inBut.Z) {
+        //And if the main payload has not requested to boot the bootloader
+        if ((inBut.X || inBut.Y || inBut.Z) && (NCO1ACCL == 0)) {
             bootPayload();
         }
     }
+
+    NCO1ACCL = 0;
 
     configInit();
     ADCInit(config.SXChan, config.SYChan, config.CXChan, config.CYChan);
@@ -429,6 +432,8 @@ void portsInit(void) {
 }
 
 void bootPayload(void) {
+    INTCON0 = 0x00; //Disable interrupts
+    NCO1ACCL = 0x01;
     STKPTR = 0x00; //Clean up stack
     uint16_t addr = PAYLOAD_ADDR + 4; //Skips header
     IVTBASE = addr + 8; //Set interrupt base address
