@@ -80,7 +80,7 @@ void main(void) {
     //All outputs high (released)
     LATA = 0xFF;
     LATB = 0xFF;
-    LATC = 0xFF;
+    LATC = 0x3F;
 
     //Digital outputs configured as open drain
     ODCONA = 0xCA;

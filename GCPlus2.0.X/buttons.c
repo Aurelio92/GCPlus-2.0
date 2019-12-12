@@ -183,8 +183,8 @@ uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode) {
         case 3:
             buttonsMessage[4] = LUT_CX[ADC_CX];
             buttonsMessage[5] = LUT_CY[ADC_CY];
-            buttonsMessage[6] = ADC_L;
-            buttonsMessage[7] = ADC_R;
+            buttonsMessage[6] = la;
+            buttonsMessage[7] = ra;
         break;
 
         case 4:

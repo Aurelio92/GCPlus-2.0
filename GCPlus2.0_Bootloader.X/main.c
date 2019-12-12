@@ -94,6 +94,10 @@ void main(void) {
     NCO1ACCL = 0;
 
     configInit();
+    if (config.triggersMode == TRIG_MODE_ANALOG) {
+        ANSELC |= 0x18; //Enable analog on triggers
+    }
+
     ADCInit(config.SXChan, config.SYChan, config.CXChan, config.CYChan);
     buttonsInit();
     SIInit();
