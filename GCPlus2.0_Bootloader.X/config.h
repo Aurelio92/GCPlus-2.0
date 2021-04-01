@@ -12,6 +12,7 @@ typedef struct {
     uint32_t magicCode; //0x322B4347 = 'GC+2'
     uint16_t version;
 
+    //OFFSET: 0x06
     //Sticks configuration
     uint8_t SXMin;
     uint8_t SXMax;
@@ -25,6 +26,8 @@ typedef struct {
     uint8_t SYChan;
     uint8_t CXChan;
     uint8_t CYChan;
+
+    //OFFSET: 0x12
     union {
         struct {
             uint8_t SXInvert : 1;
@@ -35,6 +38,7 @@ typedef struct {
         };
         uint8_t axInvert;
     };
+    //OFFSET: 0x13
     uint8_t SDeadzone;
     uint8_t CDeadzone;
 

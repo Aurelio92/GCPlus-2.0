@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="yes"?>
+<app version="1">
+	<name>GC+2.0 Configurator</name>
+	<coder>Aurelio</coder>
+	<version>1.0</version>
+	<release_date>20200221000000</release_date>
+	<short_description>GC+2.0 Configurator</short_description>
+	<long_description>Configurator homebrew for GC+2.0. Allows to configure sticks mapping and ranges, deadzone, rumble and triggers mode.</long_description>
+</app>

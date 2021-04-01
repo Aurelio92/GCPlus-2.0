@@ -19,6 +19,7 @@
 #define GCP_CMD_SETMAPBYTE1     0x17
 #define GCP_CMD_GETMAPBYTE0     0x18
 #define GCP_CMD_GETMAPBYTE1     0x19
+#define GCP_CMD_REBUILDLUT      0x20
 
 //GC+2.0 bootloader specific commands
 #define GCP_CMD_RESETIDX        0x70

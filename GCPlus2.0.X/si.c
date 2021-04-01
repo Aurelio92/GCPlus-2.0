@@ -3,13 +3,13 @@
 #include <stdbool.h>
 #include "si.h"
 
-static uint8_t SIInputMessage[32];
+static uint8_t SIInputMessage[0x24];
 static uint8_t SIBitCounter = 0;
 static uint8_t SIByteCounter = 0;
 static uint8_t SICMDReceived = 0;
 static uint8_t SITempByte = 0x00;
 
-void interrupt hi_int(void) //High priority interrupt
+void __interrupt(base(0x200C)) hi_int(void) //High priority interrupt
 {
     if (SMT1PWAIE && SMT1PWAIF)
     {
@@ -29,16 +29,18 @@ void interrupt hi_int(void) //High priority interrupt
             SITempByte = 0x00;
             SIBitCounter = 0;
             ++SIByteCounter;
-        } else if (SIBitCounter == 1) { //Check for stop bit
+        }/* else if (SIBitCounter == 1) { //Check for stop bit
             if (SITempByte == 1 && SIByteCounter > 0) {
                 SICMDReceived = 1;
             }
-        }
+        }*/
     }
 
     if (PIR9bits.TMR6IF) {
         if (SIByteCounter) {
             SICMDReceived = 1;
+        } else {
+            SIClear();
         }
         PIR9bits.TMR6IF = 0;
     }
@@ -97,8 +99,6 @@ void SIInit(void) {
     PIE1bits.SMT1PWAIE = 1;
     SMT1CON1bits.GO = 1;
 }
-
-#define METHOD 1
 
 void SIConfigureCLC(void) {
     T2CON = 0x00;

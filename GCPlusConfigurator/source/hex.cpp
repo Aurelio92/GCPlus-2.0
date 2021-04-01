@@ -18,6 +18,8 @@ IntelHex::IntelHex(const char* filename) {
     binary = NULL;
 
     FILE* fp = fopen(filename, "r");
+    if (!fp)
+        return;
     //Compute binary size
     while(!feof(fp)) {
         if (fgets(tempLine, 256, fp) != NULL) {
@@ -42,7 +44,7 @@ IntelHex::IntelHex(const char* filename) {
                 u8 recordType = hex2u8(&tempLine[7]);
                 if (recordType == 0) { //Data
                     //Actual payload
-                    if (address >= 0xC00 && (address + byteCount) <= 0x4000) {
+                    if (address >= PAYLOAD_ADDRESS && (address + byteCount) <= PGM_SIZE) {
                         binarySize += byteCount;
                     }
                 } else if (recordType == 1) { //End of file
@@ -63,15 +65,15 @@ IntelHex::IntelHex(const char* filename) {
     }
 
     rewind(fp);
-    binarySize = 0x3400;
+    binarySize = PGM_SIZE - PAYLOAD_ADDRESS;
     //Actually read the binary
     binary = (u8*)malloc(binarySize);
-    memset(binary, 0, binarySize);
     /*if (binary == NULL) {
         binarySize = 0;
         fclose(fp);
         return;
     }*/
+    memset(binary, 0, binarySize);
     extAddress = 0;
     while(!feof(fp)) {
         if (fgets(tempLine, 256, fp) != NULL) {
@@ -96,9 +98,9 @@ IntelHex::IntelHex(const char* filename) {
                 u8 recordType = hex2u8(&tempLine[7]);
                 if (recordType == 0) { //Data
                     //Actual payload
-                    if (address >= 0xC00 && (address + byteCount) <= 0x4000) {
+                    if (address >= PAYLOAD_ADDRESS && (address + byteCount) <= PGM_SIZE) {
                         for (int i = 0; i < byteCount; i++) {
-                            binary[address + i - 0xC00] = hex2u8(&tempLine[9 + 2 * i]);
+                            binary[address + i - PAYLOAD_ADDRESS] = hex2u8(&tempLine[9 + 2 * i]);
                         }
                     }
                 } else if (recordType == 1) { //End of file

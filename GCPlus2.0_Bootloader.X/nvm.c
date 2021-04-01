@@ -11,6 +11,8 @@ void NVMUnlock(void) {
 void PGMEraseRow(uint16_t addr) {
     if (addr & 63)
         return;
+    if (addr < PAYLOAD_ADDR || (addr + 64) > 0x8000)
+        return;
 
     NVMCON1 = 0;
     TBLPTRU = 0;
@@ -18,8 +20,8 @@ void PGMEraseRow(uint16_t addr) {
     TBLPTRL = addr & 0xFF;
     NVMCON1bits.REG0 = 0;
     NVMCON1bits.REG1 = 1;
-    NVMCON1bits.WREN = 1;
     NVMCON1bits.FREE = 1;
+    NVMCON1bits.WREN = 1;
     NVMUnlock();
     NVMCON1bits.WREN = 0;
 }
@@ -27,17 +29,19 @@ void PGMEraseRow(uint16_t addr) {
 void PGMWriteBlock(uint16_t addr, uint8_t* data) {
     if (addr & 63)
         return;
-    if (addr < (PAYLOAD_ADDR << 1) || (addr + 64) > 0x8000)
+    if (addr < PAYLOAD_ADDR || (addr + 64) > 0x8000)
         return;
 
     uint16_t i;
 
-    NVMCON1 = 0;
+    /*NVMCON1 = 0;
 
     //Load address
     TBLPTRU = 0;
     TBLPTRH = (addr >> 8) & 0xFF;
-    TBLPTRL = addr & 0xFF;
+    TBLPTRL = addr & 0xFF;*/
+
+    PGMEraseRow(addr);
 
     //Copy block to the latches
     asm("tblrd*-");
@@ -59,7 +63,7 @@ void PGMWriteBlock(uint16_t addr, uint8_t* data) {
 void PGMReadBlock(uint16_t addr, uint8_t* data) {
     if (addr & 63)
         return;
-    if (addr < (PAYLOAD_ADDR << 1) || (addr + 64) > 0x8000)
+    if (addr < PAYLOAD_ADDR || (addr + 64) > 0x8000)
         return;
 
     uint16_t i;

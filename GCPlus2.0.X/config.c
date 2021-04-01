@@ -48,7 +48,7 @@ void configSetDefault(void) {
     config.rumbleIntensity = 0xFF;
 
     //Triggers mode
-    config.triggersMode = 0; //Digital
+    config.triggersMode = TRIG_MODE_DIGITAL;
 }
 
 void configFlashAll(void) {

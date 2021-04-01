@@ -18,24 +18,94 @@
 
 #include "textures.h"
 #include "textures_tpl.h"
+#include "textures_pressed.h"
+#include "textures_pressed_tpl.h"
 
-#define PI 3.14159265359f
+#include "gcplus.h"
+#include "menu.h"
+#include "wizardmenu.h"
+#include "miscmenu.h"
+#include "testmenu.h"
+#include "updatemenu.h"
+#include "log.h"
+#include "hex.h"
 
-void drawTopBar(Font& font);
-void drawBottomBar(Font& font);
-u8 mainMenuLoop(Font& font);
+#define TOPBAR_HEIGHT 68
+#define BOTTOMBAR_HEIGHT 44
 
-int main(int argc, char **argv) {
+class ExitElement : public GuiElement {
+    public:
+        void onActiveEvent() {
+            exit(0);
+        }
+};
+
+GuiWindow* masterWindow;
+GuiWindow* mainWindow;
+GuiWindow* wizardWindow;
+GuiWindow* miscWindow;
+GuiWindow* testWindow;
+GuiWindow* updateWindow;
+ExitElement* exitElement;
+
+static mutex_t SIMutex;
+
+void lockSIMutex() {
+    LWP_MutexLock(SIMutex);
+}
+
+void unlockSIMutex() {
+    LWP_MutexUnlock(SIMutex);
+}
+
+void switchBackToMainMenu(GuiElement* caller) {
+    masterWindow->setElementActive(caller, false);
+    masterWindow->focusOnElement(mainWindow);
+    masterWindow->setElementActive(mainWindow, true);
+    VIDEO_WaitVSync();
+    PAD_ScanPads();
+    VIDEO_WaitVSync();
+    PAD_ScanPads();
+    VIDEO_WaitVSync();
+}
+
+void switchToMenu(GuiElement* win) {
+    masterWindow->setElementActive(mainWindow, false);
+    masterWindow->focusOnElement(win);
+    masterWindow->setElementActive(win, true);
+    VIDEO_WaitVSync();
+    PAD_ScanPads();
+    VIDEO_WaitVSync();
+    PAD_ScanPads();
+    VIDEO_WaitVSync();
+}
+
+int main(int argc, char** argv) {
     TPLFile tdf;
+    TPLFile tdf_pressed;
     Vector2 screenSize;
+    bool didTimeout = false;
+
     Gfx::init();
+    Gfx::setClearColor(0x30, 0x30, 0x30);
     PAD_Init();
     WPAD_Init();
     fatInitDefault();
 
-    Font FSEX300(FSEX300_ttf, FSEX300_ttf_size, 20);
-    Font menlo(Menlo_Regular_ttf, Menlo_Regular_ttf_size, 20);
+    LWP_MutexInit(&SIMutex, true);
+
+    IntelHex hex("/GCPlus2.0Update.hex");
+
+    #ifdef DEMOBUILD
+    hex.binary = (u8*)malloc(1024 * 8);
+    hex.binarySize = 1024 * 8;
+    #endif
+
     Font sfmono(SFMono_Regular_otf, SFMono_Regular_otf_size, 20);
+    Font sfmonoSmall(SFMono_Regular_otf, SFMono_Regular_otf_size, 12);
+
+    TPL_OpenTPLFromMemory(&tdf, (void*)textures_tpl, textures_tpl_size);
+    TPL_OpenTPLFromMemory(&tdf_pressed, (void*)textures_pressed_tpl, textures_pressed_tpl_size);
 
     if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) {
         screenSize.x = 800;
@@ -45,300 +115,154 @@ int main(int argc, char **argv) {
         screenSize.y = 480;
     }
 
-    GuiWindow mainWindow(screenSize.x, screenSize.y);
+    masterWindow = new GuiWindow(screenSize.x, screenSize.y);
+
     //Top bar
-    GuiWindow topBar(screenSize.x, 68);
+    GuiWindow topBar(screenSize.x, TOPBAR_HEIGHT);
     topBar.setColor(RGBA8(0x40, 0x40, 0x40, 0xFF));
     GuiLabel topLabel(&sfmono, L"GC+2.0 configurator");
     topBar.addElement(&topLabel, 12, 28);
+    masterWindow->addElement(&topBar, 0, 0);
 
     //Bottom bar
-    GuiWindow bottomBar(screenSize.x, 44);
+    GuiWindow bottomBar(screenSize.x, BOTTOMBAR_HEIGHT);
     bottomBar.setColor(RGBA8(0x40, 0x40, 0x40, 0xFF));
-    GuiLabel bottomLabel(&sfmono, L"v1.0");
+    GuiLabel bottomLabel(&sfmono, L"v1.1");
     bottomBar.addElement(&bottomLabel, 12, 8);
+    masterWindow->addElement(&bottomBar, 0, screenSize.y - BOTTOMBAR_HEIGHT);
 
-    mainWindow.addElement(&topBar, 0, 0);
-    mainWindow.addElement(&bottomBar, 0, 436);
-
-    TPL_OpenTPLFromMemory(&tdf, (void*)textures_tpl, textures_tpl_size);
-    Texture tex1 = createTextureFromTPL(&tdf, 0);
-    Texture tex2 = createTextureFromTPL(&tdf, 1);
-
-    GuiImage img1(&tdf, 0);
-    GuiImage img2(&tdf, 1);
-    img1.setSize(128, 128);
-    img2.setSize(128, 128);
-    mainWindow.addElement(&img2, 100, 100);
-    mainWindow.addElement(&img1, 100, 100);
-
-    Animation<Vector2> anim;
-    Vector2 xy;
-    Vector2 xy1;
-    Vector2 xy2;
-    anim.setOutput(&xy);
-    xy1 = Vector2(0, 0);
-    xy2 = Vector2(0, 0);
-    anim.addStep(millisecs_to_ticks(1000), xy1, xy2);
-    xy1 = Vector2(0, 0);
-    xy2 = Vector2(48, 0);
-    anim.addStep(millisecs_to_ticks(100), xy1, xy2);
-    xy1 = Vector2(48, 0);
-    xy2 = Vector2(48, 0);
-    anim.addStep(millisecs_to_ticks(1000), xy1, xy2);
-
-    for (int i = 0; i < 99; i++) {
-        float x1 = 48 * cos(i * 2 * PI / 100);
-        float y1 = -48 * sin(i * 2 * PI / 100);
-        float x2 = 48 * cos((i + 1) * 2 * PI / 100);
-        float y2 = -48 * sin((i + 1) * 2 * PI / 100);
-        xy1 = Vector2(x1, y1);
-        xy2 = Vector2(x2, y2);
-        anim.addStep(millisecs_to_ticks(10), xy1, xy2);
+    #ifndef DEMOBUILD
+    //Wait until a controller is connected for at least 500 ms
+    {
+        u32 connected;
+        u64 now = gettime();
+        u64 timeout = gettime();
+        do {
+            connected = PAD_ScanPads();
+            if (!(connected & 1)) {
+                now = gettime();
+            }
+            if (ticks_to_millisecs(gettime() - timeout) > 3000) {
+                didTimeout = true;
+                break;
+            }
+            VIDEO_WaitVSync();
+        } while (ticks_to_millisecs(gettime() - now) < 500);
     }
-    xy1 = Vector2(48, 0);
-    xy2 = Vector2(48, 0);
-    anim.addStep(millisecs_to_ticks(300), xy1, xy2);
-    anim.addReturnToHomeStep(millisecs_to_ticks(100));
-    anim.resume();
 
-    srand(time(NULL));
+    if (didTimeout) {
+        u64 now = gettime();
+        while(1) {
+            GFXDraw {
+                sfmono.printf(40, 20, "GC+2.0 is required to run this homebrew");
+                sfmono.printf(40, 40, "Will now exit");
+            }
 
-    u8 selected = 0;
+            if (ticks_to_millisecs(gettime() - now) > 2000)
+                exit(0);
+        }
+    }
+
+    if (GCPlus::isV1()) {
+        u64 now = gettime();
+        while(1) {
+            GFXDraw {
+                sfmono.printf(40, 20, "GC+ 1.0 is not supported by this homebrew");
+                sfmono.printf(40, 40, "Will now exit");
+            }
+
+            if (ticks_to_millisecs(gettime() - now) > 2000)
+                exit(0);
+        }
+    }
+
+    if (!GCPlus::isV2()) {
+        u64 now = gettime();
+        while(1) {
+            GFXDraw {
+                sfmono.printf(40, 20, "GC+2.0 is required to run this homebrew");
+                sfmono.printf(40, 40, "Will now exit");
+            }
+
+            if (ticks_to_millisecs(gettime() - now) > 2000)
+                exit(0);
+        }
+    }
+    #endif
+
+    //Main menu
+    mainWindow = new GuiWindow(screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    masterWindow->addElement(mainWindow, 0, TOPBAR_HEIGHT);
+
+    Menu menu(&sfmono, screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    menu.setSwitchToMenu(switchToMenu);
+    mainWindow->addElement(&menu, 0, 0);
+    mainWindow->focusOnElement(&menu);
+
+    //Wizard menu
+    wizardWindow = new GuiWindow(screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    masterWindow->addElement(wizardWindow, 0, TOPBAR_HEIGHT, false);
+
+    WizardMenu wizardMenu(&tdf, &sfmono, screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    wizardMenu.setExitCallback(switchBackToMainMenu);
+    wizardWindow->addElement(&wizardMenu, 0, 0);
+    wizardWindow->focusOnElement(&wizardMenu);
+
+    //Misc menu
+    miscWindow = new GuiWindow(screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    masterWindow->addElement(miscWindow, 0, TOPBAR_HEIGHT, false);
+
+    MiscMenu miscMenu(&tdf, &sfmono, screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    miscMenu.setExitCallback(switchBackToMainMenu);
+    miscWindow->addElement(&miscMenu, 0, 0);
+    miscWindow->focusOnElement(&miscMenu);
+
+    //Misc menu
+    testWindow = new GuiWindow(screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    masterWindow->addElement(testWindow, 0, TOPBAR_HEIGHT, false);
+
+    TestMenu testMenu(&tdf, &tdf_pressed, &sfmono, &sfmonoSmall, screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    testMenu.setExitCallback(switchBackToMainMenu);
+    testWindow->addElement(&testMenu, 0, 0);
+    testWindow->focusOnElement(&testMenu);
+
+    //Update menu
+    updateWindow = new GuiWindow(screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT));
+    masterWindow->addElement(updateWindow, 0, TOPBAR_HEIGHT, false);
+
+    UpdateMenu updateMenu(&sfmono, screenSize.x, screenSize.y - (TOPBAR_HEIGHT + BOTTOMBAR_HEIGHT), hex.binary, hex.binarySize);
+    updateMenu.setExitCallback(switchBackToMainMenu);
+    updateWindow->addElement(&updateMenu, 0, 0);
+    updateWindow->focusOnElement(&updateMenu);
+
+    //Exit element
+    exitElement = new ExitElement();
+    masterWindow->addElement(exitElement, 0, TOPBAR_HEIGHT, false);
+
+    menu.addSubMenu(wizardWindow, "Sticks wizard");
+    menu.addSubMenu(miscWindow, "Misc settings");
+    /*menu.addSubMenu(NULL, "Triggers settings");
+    menu.addSubMenu(NULL, "Rumble settings");*/
+    menu.addSubMenu(testWindow, "Buttons test");
+    menu.addSubMenu(updateWindow, "Update");
+    menu.addSubMenu(exitElement, "Exit");
+
+    masterWindow->focusOnElement(mainWindow);
+    masterWindow->setElementActive(mainWindow, true);
 
     while (1) {
+        lockSIMutex();
         PAD_ScanPads();
+        unlockSIMutex();
         WPAD_ScanPads();
 
-        int down = PAD_ButtonsDown(0);
-        if (down & PAD_BUTTON_START) exit(0);
+        masterWindow->handleInputs();
 
-        anim.animate();
-
-        Gfx::startDrawing();
-        /*Gfx::pushMatrix();
-        Gfx::translate(100, 100);
-        drawTextureResized(0, 0, 128, 128, tex2);
-        drawTextureResized(xy[0], xy[1], 128, 128, tex1);
-        Gfx::popMatrix();*/
-        mainWindow.setElementPosition(&img1, 100 + xy.x, 100 + xy.y);
-        mainWindow.draw();
-        Gfx::endDrawing();
-
-        /*if (selected == 0) {
-            selected = mainMenuLoop(sfmono);
-        }*//* else if (selected == 1) {
-            int ret = powerMiiSettingsMenuLoop(sfmono, powerMiiConfig);
-            if (ret == 1) { //Save config
-                powerMiiWriteConfig(&powerMiiConfig, &powerMiiConfigBackup);
-                powerMiiConfigBackup = powerMiiConfig;
-                selected = 0;
-            } else if (ret == -1) { //Discard config
-                powerMiiConfig = powerMiiConfigBackup;
-                selected = 0;
-            }
-        } else if (selected == 2) {
-            int ret = chargeSettingsMenuLoop(sfmono, powerMiiConfig);
-            if (ret == 1) { //Save config
-                powerMiiWriteConfig(&powerMiiConfig, &powerMiiConfigBackup);
-                powerMiiConfigBackup = powerMiiConfig;
-                selected = 0;
-            } else if (ret == -1) { //Discard config
-                powerMiiConfig = powerMiiConfigBackup;
-                selected = 0;
-            }
-        } else if (selected == 3) {
-            if (fanSettingsMenuLoop(sfmono, timeAx, temperature, fanSpeed, tempPlot, fanSettings)) {
-                selected = 0;
-            }
-        } else if (selected == 4) {
-            if (updateMenuLoop(sfmono, updateHex.binary, updateHex.binarySize)) {
-                selected = 0;
-            }
-        } else {
-            selected = 0;
-        }*/
-
+        GFXDraw {
+            masterWindow->draw(true);
+        }
     }
 
     return 0;
 
-}
-
-void drawTopBar(Font& font) {
-    if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) {
-        Gfx::pushMatrix();
-        drawRectangle(0, 0, 800, 68, RGBA8(0x40, 0x40, 0x40, 0xFF));
-        Gfx::translate(0, 16);
-        font.printf(12, 12, L"GC+2.0 configurator");
-        Gfx::popMatrix();
-    } else {
-        Gfx::pushMatrix();
-        drawRectangle(0, 0, 640, 68, RGBA8(0x40, 0x40, 0x40, 0xFF));
-        Gfx::translate(0, 16);
-        font.printf(12, 12, L"GC+2.0 configurator");
-        Gfx::popMatrix();
-    }
-}
-
-void drawBottomBar(Font& font) {
-    u16 ver = (1 << 13);
-    u16 maj = (ver >> 13) & 0x1FFF;
-    u16 min = ver & 0x0007;
-    if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) {
-        Gfx::pushMatrix();
-        drawRectangle(0, 436, 800, 44, RGBA8(0x40, 0x40, 0x40, 0xFF));
-        Gfx::translate(0, 440);
-        font.printf(12, 0, L"v%u.%u", maj, min);
-        Gfx::popMatrix();
-    } else {
-        Gfx::pushMatrix();
-        drawRectangle(0, 436, 640, 44, RGBA8(0x40, 0x40, 0x40, 0xFF));
-        Gfx::translate(0, 440);
-        font.printf(12, 0, L"v%u.%u", maj, min);
-        Gfx::popMatrix();
-    }
-}
-
-u8 mainMenuLoop(Font& font) {
-    static int selected = 0;
-    int down = PAD_ButtonsDown(0);
-
-    if (down & PAD_BUTTON_UP) {
-        if (selected >= 3) {
-            selected -= 3;
-        }
-    }
-
-    if (down & PAD_BUTTON_DOWN) {
-        if (selected < 3) {
-            selected += 3;
-        }
-    }
-
-    if (down & PAD_BUTTON_LEFT) {
-        if ((selected % 3) > 0) {
-            selected--;
-        }
-    }
-
-    if (down & PAD_BUTTON_RIGHT) {
-        if ((selected % 3) < 2) {
-            selected++;
-        }
-    }
-
-    if (down & PAD_BUTTON_A) {
-        return selected + 1;
-    }
-
-    Gfx::startDrawing();
-        //Drawing code goes here
-        drawTopBar(font);
-        drawBottomBar(font);
-        if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) {
-            Gfx::pushMatrix();
-            Gfx::translate(0, 68);
-
-            Gfx::pushMatrix();
-            Gfx::translate((selected % 3) * 249, (selected / 3) * 172);
-            drawRectangle(48, 20, 205, 156, RGBA8(0xFF, 0xFF, 0xFF, 0xFF));
-            Gfx::popMatrix();
-
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 2; j++) {
-                    Gfx::pushMatrix();
-                    Gfx::translate(i * 249, j * 172);
-                    drawRectangle(52, 24, 197, 148, RGBA8(0x80, 0x80, 0x80, 0xFF));
-                    Gfx::popMatrix();
-                }
-            }
-
-            Gfx::pushMatrix();
-            Gfx::translate(0, 0);
-            Gfx::pushMatrix();
-            Gfx::translate(52 + (197 - font.getTextWidth("Sticks wizard")) / 2, 24 + (148 - font.getSize()) / 2);
-            font.printf(0, 0, "Sticks wizard");
-            Gfx::popMatrix();
-            Gfx::popMatrix();
-
-            Gfx::pushMatrix();
-            Gfx::translate(249, 0);
-            Gfx::pushMatrix();
-            Gfx::translate(52 + (197 - font.getTextWidth("Buttons testing")) / 2, 24 + (148 - font.getSize()) / 2);
-            font.printf(0, 0, "Buttons testing");
-            Gfx::popMatrix();
-            Gfx::popMatrix();
-
-            Gfx::pushMatrix();
-            Gfx::translate(2 * 249, 0);
-            Gfx::pushMatrix();
-            Gfx::translate(52 + (197 - font.getTextWidth("Temp. control")) / 2, 24 + (148 - font.getSize()) / 2);
-            font.printf(0, 0, "Temp. control");
-            Gfx::popMatrix();
-            Gfx::popMatrix();
-
-            Gfx::pushMatrix();
-            Gfx::translate(0, 172);
-            Gfx::pushMatrix();
-            Gfx::translate(52 + (197 - font.getTextWidth("Update")) / 2, 24 + (148 - font.getSize()) / 2);
-            font.printf(0, 0, "Update");
-            Gfx::popMatrix();
-            Gfx::popMatrix();
-
-            Gfx::popMatrix();
-        } else {
-            Gfx::pushMatrix();
-            Gfx::translate(0, 68);
-
-            Gfx::pushMatrix();
-            Gfx::translate((selected % 3) * 209, (selected / 3) * 172);
-            drawRectangle(8, 20, 205, 156, RGBA8(0xFF, 0xFF, 0xFF, 0xFF));
-            Gfx::popMatrix();
-
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 2; j++) {
-                    Gfx::pushMatrix();
-                    Gfx::translate(i * 209, j * 172);
-                    drawRectangle(12, 24, 197, 148, RGBA8(0x80, 0x80, 0x80, 0xFF));
-                    Gfx::popMatrix();
-                }
-            }
-            Gfx::pushMatrix();
-            Gfx::translate(0, 0);
-            Gfx::pushMatrix();
-            Gfx::translate(12 + (197 - font.getTextWidth("Sticks wizard")) / 2, 24 + (148 - font.getSize()) / 2);
-            font.printf(0, 0, "Sticks wizard");
-            Gfx::popMatrix();
-            Gfx::popMatrix();
-
-            Gfx::pushMatrix();
-            Gfx::translate(209, 0);
-            Gfx::pushMatrix();
-            Gfx::translate(12 + (197 - font.getTextWidth("Buttons testing")) / 2, 24 + (148 - font.getSize()) / 2);
-            font.printf(0, 0, "Buttons testing");
-            Gfx::popMatrix();
-            Gfx::popMatrix();
-
-            Gfx::pushMatrix();
-            Gfx::translate(2 * 209, 0);
-            Gfx::pushMatrix();
-            Gfx::translate(12 + (197 - font.getTextWidth("Temp. control")) / 2, 24 + (148 - font.getSize()) / 2);
-            font.printf(0, 0, "Temp. control");
-            Gfx::popMatrix();
-            Gfx::popMatrix();
-
-            Gfx::pushMatrix();
-            Gfx::translate(0, 172);
-            Gfx::pushMatrix();
-            Gfx::translate(12 + (197 - font.getTextWidth("Update")) / 2, 24 + (148 - font.getSize()) / 2);
-            font.printf(0, 0, "Update");
-            Gfx::popMatrix();
-            Gfx::popMatrix();
-
-            Gfx::popMatrix();
-        }
-    Gfx::endDrawing();
-
-    return 0;
 }

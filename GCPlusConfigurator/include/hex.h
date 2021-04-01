@@ -1,5 +1,8 @@
 #pragma once
 
+#define PAYLOAD_ADDRESS 0x2000 //In bytes
+#define PGM_SIZE 0x8000 //In bytes
+
 class IntelHex {
 private:
     u8 hex2u8(const char* string);

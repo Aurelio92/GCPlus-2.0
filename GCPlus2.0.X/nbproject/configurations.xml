@@ -9,8 +9,8 @@
       <itemPath>buttons.h</itemPath>
       <itemPath>config.h</itemPath>
       <itemPath>main.h</itemPath>
-      <itemPath>nvm.h</itemPath>
       <itemPath>rumble.h</itemPath>
+      <itemPath>nvm.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -24,8 +24,8 @@
       <itemPath>si.c</itemPath>
       <itemPath>adc.c</itemPath>
       <itemPath>buttons.c</itemPath>
-      <itemPath>nvm.c</itemPath>
       <itemPath>rumble.c</itemPath>
+      <itemPath>nvm.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -44,7 +44,7 @@
         <platformTool>PICkit3PlatformTool</platformTool>
         <languageToolchain>XC8</languageToolchain>
         <languageToolchainVersion>2.05</languageToolchainVersion>
-        <platform>4</platform>
+        <platform>2</platform>
       </toolsSet>
       <packs>
         <pack name="PIC18F-K_DFP" vendor="Microchip" version="1.0.53"/>
@@ -131,13 +131,13 @@
         <property key="display-overall-usage" value="true"/>
         <property key="display-psect-usage" value="false"/>
         <property key="extra-lib-directories" value=""/>
-        <property key="fill-flash-options-addr" value=""/>
+        <property key="fill-flash-options-addr" value="0x2000:0x2003"/>
         <property key="fill-flash-options-const" value=""/>
         <property key="fill-flash-options-how" value="0"/>
         <property key="fill-flash-options-inc-const" value="1"/>
         <property key="fill-flash-options-increment" value=""/>
-        <property key="fill-flash-options-seq" value=""/>
-        <property key="fill-flash-options-what" value="0"/>
+        <property key="fill-flash-options-seq" value="0x4347,0x322B"/>
+        <property key="fill-flash-options-what" value="2"/>
         <property key="format-hex-file-for-download" value="false"/>
         <property key="initialize-data" value="true"/>
         <property key="input-libraries" value="libm"/>

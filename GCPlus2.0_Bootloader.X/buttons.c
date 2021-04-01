@@ -146,13 +146,16 @@ uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode) {
     buttonsMessage[3] = LUT_SY[ADC_SY];
 
     uint8_t ra, la;
-    if (triggersMode == TRIG_MODE_DIGITAL) {
+    /*if (triggersMode == TRIG_MODE_DIGITAL) {
         ra = outButtons.RA;
         la = outButtons.LA;
     } else {
         ra = ADC_R;
         la = ADC_L;
-    }
+    }*/
+    //Force bootloader to never send analog triggers data
+    ra = 0x00;
+    la = 0x00;
 
     switch (analogMode) {
         case 0:
