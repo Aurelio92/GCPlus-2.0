@@ -1,5 +1,7 @@
 #include "main.h"
 
+static uint8_t braking;
+
 void rumbleInit(void) {
     T4CON = 0x00;
     T4CLKCON = 0x01; //FOSC/4 (16MHz)
@@ -12,19 +14,30 @@ void rumbleInit(void) {
     CCPR1L = 0x00;
     CCPR1H = 0x80; //50% => 0V
     CCP1CON = 0x9C; //Enabled. Left-aligned PWM
+
+    LATB4 = 0;
+
+    braking = 0;
 }
 
 void rumbleSpin(uint8_t speed) {
-    LATB4 = 1; //Enable DRV2603
+    braking = 0;
     CCPR1H = speed;
+    LATB4 = 1; //Enable DRV2603
 }
 
 void rumbleBrake(void) {
-    LATB4 = 1; //Enable DRV2603
-    CCPR1H = 0x60;
+    CCPR1H = 0x00;
+    if (!braking)
+        LATB4 = 1; //Enable DRV2603
+    else
+        LATB4 = 0; //Disable DRV2603
+
+    braking = 1;
 }
 
 void rumbleStop(void) {
+    braking = 0;
+    CCPR1H = 0x00;
     LATB4 = 0; //Disable DRV2603
-    CCPR1H = 0x80;
 }

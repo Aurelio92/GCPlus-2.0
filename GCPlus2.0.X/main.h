@@ -14,7 +14,7 @@
 #include "rumble.h"
 
 #define GCP2_VERSION_MAJ 2U
-#define GCP2_VERSION_MIN 2U
+#define GCP2_VERSION_MIN 3U
 #define GCP2_VERSION (((GCP2_VERSION_MAJ & 0x1FFF) << 3) | (GCP2_VERSION_MIN & 0x0007))
 
 #define GCP2_HWVERSION_MAJ 2U

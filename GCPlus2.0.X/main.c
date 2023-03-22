@@ -349,7 +349,7 @@ void portsInit(void) {
     PPSLOCKbits.PPSLOCKED = 0x01; //Lock PPS
     GIE = state; //Restore interrupts
 
-    LATB = 0xFF;
+    LATB = 0xEF;
 
     //Bootloader won't emulate analog triggers
     TRISA = 0xFF;
