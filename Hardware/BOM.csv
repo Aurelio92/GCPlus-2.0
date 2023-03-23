@@ -1,0 +1,6 @@
+"Qty";"Value";"Device";"Package";"Parts";"Description";
+"3";"0.1uF";"C-EUC0402";"C0402";"C1, C2, C3";"CAPACITOR, European symbol";
+"2";"10kOhm";"R-US_R0402";"R0402";"R1, R3";"RESISTOR, American symbol";
+"1";"100Ohm";"R-US_R0402";"R0402";"R2";"RESISTOR, American symbol";
+"1";"PIC18F25K42";"PIC18F25K42";"QFN-28";"U1";"";
+"1";"DRV2603";"DRV2603";"WQFN-10";"U2";"";
