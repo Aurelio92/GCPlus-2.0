@@ -16,6 +16,16 @@ void configInit(void) {
             configFlashAll();
         }
     }
+
+    //Scaleable triggers introduced after version 2.3
+    if (config.version <= GCP2_VERSION_MAJ_MIN(2, 3)) {
+        config.version = GCP2_VERSION_MAJ_MIN(2, 3);
+        config.LMin = 0x00;
+        config.LMax = 0xFF;
+        config.RMin = 0x00;
+        config.RMax = 0xFF;
+        configFlashAll();
+    }
 }
 
 void configSetDefault(void) {
@@ -49,6 +59,12 @@ void configSetDefault(void) {
 
     //Triggers mode
     config.triggersMode = TRIG_MODE_DIGITAL;
+
+    //Triggers ranges
+    config.LMin = 0x00;
+    config.LMax = 0xFF;
+    config.RMin = 0x00;
+    config.RMax = 0xFF;
 }
 
 void configFlashAll(void) {

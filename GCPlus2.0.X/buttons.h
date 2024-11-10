@@ -101,6 +101,15 @@ uint8_t* buttonsGetMapByte1(void);
 */
 void buttonsBuildLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin, uint8_t dz, uint8_t dzMode, uint8_t invert);
 
+/*! \fn void buttonsBuildTriggersLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal);
+    \brief builds a 256 bytes LUT for analog triggers inputs scaling
+    \param LUT the destination address
+    \param minVal the minimum value of the input range
+    \param maxVal the maximum value of the input range
+    \param origin the center position of the input value
+*/
+void buttonsBuildTriggersLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin);
+
 void buttonsBuildLUTs(void);
 
 #endif

@@ -40,6 +40,8 @@ uint8_t LUT_SX[0x100];
 uint8_t LUT_SY[0x100];
 uint8_t LUT_CX[0x100];
 uint8_t LUT_CY[0x100];
+uint8_t LUT_L[0x100];
+uint8_t LUT_R[0x100];
 
 void buttonsInit(void) {
     //Use timer 0 as a 1 ms timer for debouncing
@@ -156,8 +158,8 @@ uint8_t* buttonsGetMessage(uint8_t analogMode, uint8_t triggersMode) {
         ra = outButtons.RA;
         la = outButtons.LA;
     } else {
-        ra = ADC_R;
-        la = ADC_L;
+        ra = LUT_R[ADC_R];
+        la = LUT_L[ADC_L];
     }
 
     switch (analogMode) {
@@ -267,9 +269,23 @@ void buttonsBuildLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origi
     }
 }
 
+void buttonsBuildTriggersLUT(uint8_t* LUT, uint8_t minVal, uint8_t maxVal, uint8_t origin) {
+    int16_t i;
+    int16_t range = (int16_t)maxVal - (int16_t)minVal;
+
+    for (i = 0; i < 256; i++) {
+        int16_t tempVal = (i - origin) * 255 / range;
+        if (tempVal < 0) tempVal = 0;
+        if (tempVal > 0xFF) tempVal = 0xFF;
+        LUT[i] = (uint8_t)tempVal & 0xFFU;
+    }
+}
+
 void buttonsBuildLUTs(void) {
     buttonsBuildLUT(LUT_SX, config.SXMin, config.SXMax, ADC_SX, config.SDeadzone, config.deadzoneMode, config.SXInvert);
     buttonsBuildLUT(LUT_SY, config.SYMin, config.SYMax, ADC_SY, config.SDeadzone, config.deadzoneMode, config.SYInvert);
     buttonsBuildLUT(LUT_CX, config.CXMin, config.CXMax, ADC_CX, config.CDeadzone, config.deadzoneMode, config.CXInvert);
     buttonsBuildLUT(LUT_CY, config.CYMin, config.CYMax, ADC_CY, config.CDeadzone, config.deadzoneMode, config.CYInvert);
+    buttonsBuildTriggersLUT(LUT_L, config.LMin, config.LMax, ADC_L);
+    buttonsBuildTriggersLUT(LUT_R, config.RMin, config.RMax, ADC_R);
 }
