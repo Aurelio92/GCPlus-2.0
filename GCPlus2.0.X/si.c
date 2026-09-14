@@ -1,13 +1,14 @@
 #include <xc.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "si.h"
+#include "main.h"
 
 static uint8_t SIInputMessage[0x24];
 static uint8_t SIBitCounter = 0;
 static uint8_t SIByteCounter = 0;
 static uint8_t SICMDReceived = 0;
 static uint8_t SITempByte = 0x00;
+static uint8_t SICMDLength = 0; //0 if the command is handled by the main loop
 
 void __interrupt(base(0x200C)) hi_int(void) //High priority interrupt
 {
@@ -29,11 +30,13 @@ void __interrupt(base(0x200C)) hi_int(void) //High priority interrupt
             SITempByte = 0x00;
             SIBitCounter = 0;
             ++SIByteCounter;
-        }/* else if (SIBitCounter == 1) { //Check for stop bit
-            if (SITempByte == 1 && SIByteCounter > 0) {
-                SICMDReceived = 1;
+            if (SIByteCounter == 1) {
+                SICMDLength = directCommandLength(SIInputMessage[0]);
             }
-        }*/
+        } else if (SIBitCounter == 1 && SITempByte == 1 && SIByteCounter && SIByteCounter == SICMDLength) {
+            //Stop bit of a fixed length command
+            directCommandAnswer(SIInputMessage);
+        }
     }
 
     if (PIR9bits.TMR6IF) {

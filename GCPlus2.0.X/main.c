@@ -115,48 +115,6 @@ void main(void) {
 
         if (cmdLen > 0) {
             switch(cmd[0]) {
-                case SI_CMD_ID:
-                case SI_CMD_RESET:
-                    msgAnswer[0] = 0x09;
-                    msgAnswer[1] = 0x00;
-                    msgAnswer[2] = 0x03;
-                    SISendMessage(msgAnswer, 3);
-                break;
-
-                case SI_CMD_POLL:
-                    //Handle rumble
-                    switch (cmd[2]) {
-                        case 1:
-                            rumbleSpin(config.rumbleIntensity);
-                        break;
-
-                        case 2:
-                            rumbleBrake();
-                        break;
-
-                        default:
-                            rumbleStop();
-                        break;
-                    }
-                    //Answer
-                    SISendMessage(buttonsGetMessage(cmd[1], config.triggersMode), 8);
-                break;
-
-                case SI_CMD_ORIGINS:
-                case SI_CMD_CALIB:
-                    msgAnswer[0] = 0x00;
-                    msgAnswer[1] = 0x80;
-                    msgAnswer[2] = 0x80;
-                    msgAnswer[3] = 0x80;
-                    msgAnswer[4] = 0x80;
-                    msgAnswer[5] = 0x80;
-                    msgAnswer[6] = 0x00;
-                    msgAnswer[7] = 0x00;
-                    msgAnswer[8] = 0x00;
-                    msgAnswer[9] = 0x00;
-                    SISendMessage(msgAnswer, 10);
-                break;
-
                 case GCP_CMD_LOCKUNLOCK:
                     if ((cmd[1] == 0x47) && (cmd[2] == 0x43) && (cmd[3] == 0x2B) && (cmd[4] == 0x32) && cmdLen == 5) {
                         gcpLocked = 0;
@@ -323,6 +281,59 @@ void main(void) {
     }
 
     return;
+}
+
+//Commands answered at their stop bit. Called from the interrupt handler
+static uint8_t idAnswer[3] = {0x09, 0x00, 0x03};
+static uint8_t originAnswer[10] = {0x00, 0x80, 0x80, 0x80, 0x80, 0x80, 0x00, 0x00, 0x00, 0x00};
+
+uint8_t directCommandLength(uint8_t cmd) {
+    switch(cmd) {
+        case SI_CMD_ID:
+        case SI_CMD_RESET:
+        case SI_CMD_ORIGINS:
+            return 1;
+
+        case SI_CMD_POLL:
+        case SI_CMD_CALIB:
+            return 3;
+
+        default: //Not answered from the interrupt handler. Handled by the main loop after the bus timeout
+            return 0;
+    }
+}
+
+void directCommandAnswer(uint8_t* cmd) {
+    switch(cmd[0]) {
+        case SI_CMD_ID:
+        case SI_CMD_RESET:
+            SISendMessage(idAnswer, 3);
+        break;
+
+        case SI_CMD_POLL:
+            //Handle rumble
+            switch (cmd[2]) {
+                case 1:
+                    rumbleSpin(config.rumbleIntensity);
+                break;
+
+                case 2:
+                    rumbleBrake();
+                break;
+
+                default:
+                    rumbleStop();
+                break;
+            }
+            //Answer
+            SISendMessage(buttonsGetMessage(cmd[1], config.triggersMode), 8);
+        break;
+
+        case SI_CMD_ORIGINS:
+        case SI_CMD_CALIB:
+            SISendMessage(originAnswer, 10);
+        break;
+    }
 }
 
 void portsInit(void) {

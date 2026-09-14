@@ -1,11 +1,12 @@
 #include "main.h"
 
 void NVMUnlock(void) {
+    uint8_t gie = INTCON0bits.GIE;
     INTCON0bits.GIE = 0;
     NVMCON2 = 0x55;
     NVMCON2 = 0xAA;
     NVMCON1bits.WR = 1;
-    INTCON0bits.GIE = 1;
+    INTCON0bits.GIE = gie;
 }
 
 uint8_t EEPROMReadByte(uint8_t address) {

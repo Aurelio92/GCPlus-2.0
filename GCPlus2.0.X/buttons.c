@@ -25,8 +25,8 @@
 
 #define CHECK_DEBOUNCE(b) if (buttonsTimers[BUTTON_##b##_ID] >= DEBOUNCE && !prevButtons.##b) { \
         buttonsTimers[BUTTON_##b##_ID] = DEBOUNCE; \
-        outButtons.byte0 |= buttonsMapByte0[BUTTON_##b##_ID]; \
-        outButtons.byte1 |= buttonsMapByte1[BUTTON_##b##_ID]; \
+        byte0 |= buttonsMapByte0[BUTTON_##b##_ID]; \
+        byte1 |= buttonsMapByte1[BUTTON_##b##_ID]; \
     }
 
 inButtons_t prevButtons;
@@ -73,6 +73,7 @@ void buttonsInit(void) {
 void buttonsUpdate(void) {
     uint8_t i;
     uint8_t PA, PB, PC;
+    uint8_t byte0, byte1;
     inButtons_t toggledButtons;
 
     //Check which pins were toggled
@@ -112,8 +113,8 @@ void buttonsUpdate(void) {
         buttonsTimers[i]++;
     }
 
-    outButtons.byte0 = 0x00;
-    outButtons.byte1 = 0x80; //Make sure er is 1
+    byte0 = 0x00;
+    byte1 = 0x80; //Make sure er is 1
     //Update valid buttons
     CHECK_DEBOUNCE(A)
     CHECK_DEBOUNCE(B)
@@ -128,6 +129,8 @@ void buttonsUpdate(void) {
     CHECK_DEBOUNCE(RD)
     CHECK_DEBOUNCE(LD)
     CHECK_DEBOUNCE(Z2)
+    outButtons.byte0 = byte0;
+    outButtons.byte1 = byte1;
     //Slightly different check for the analog triggers
     if (buttonsTimers[BUTTON_LA_ID] >= DEBOUNCE) {
         buttonsTimers[BUTTON_LA_ID] = DEBOUNCE;

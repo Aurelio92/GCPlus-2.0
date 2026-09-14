@@ -36,4 +36,16 @@ void portsInit(void);
 */
 void bootBootloader(void);
 
+/*! \fn uint8_t directCommandLength(uint8_t cmd)
+    \brief returns the length of a command answered at its stop bit, 0 otherwise
+    \param cmd the command byte
+*/
+uint8_t directCommandLength(uint8_t cmd);
+
+/*! \fn void directCommandAnswer(uint8_t* cmd)
+    \brief answers a command at its stop bit, from the interrupt handler
+    \param cmd the received command
+*/
+void directCommandAnswer(uint8_t* cmd);
+
 #endif
