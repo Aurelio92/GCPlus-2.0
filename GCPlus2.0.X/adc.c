@@ -11,12 +11,12 @@
 #include "adc.h"
 
 uint8_t ADCChannels[ADC_NCHANNELS] = {
-    //SX, SY,   CX,   CY,   R,   L
-    0x02, 0x03, 0x00, 0x01, 0x13, 0x14
+    //dummy, SY, SX,   CX,   CY,   R,   L
+    0x02, 0x03, 0x02, 0x00, 0x01, 0x13, 0x14
 };
 
 uint8_t ADCValues[ADC_NCHANNELS] = {
-    0x80, 0x80, 0x80, 0x80, 0x00, 0x00
+    0x00, 0x80, 0x80, 0x80, 0x80, 0x00, 0x00
 };
 
 void ADCInit(uint8_t sxCh, uint8_t syCh, uint8_t cxCh, uint8_t cyCh) {
@@ -40,10 +40,11 @@ void ADCInit(uint8_t sxCh, uint8_t syCh, uint8_t cxCh, uint8_t cyCh) {
     ADCPbits.CPON = 1;
     while (!ADCPbits.CPRDY);
 
-    ADCChannels[0] = sxCh;
+    ADCChannels[0] = sxCh; // dummy! not really used
     ADCChannels[1] = syCh;
-    ADCChannels[2] = cxCh;
-    ADCChannels[3] = cyCh;
+    ADCChannels[2] = sxCh;
+    ADCChannels[3] = cxCh;
+    ADCChannels[4] = cyCh;
 
     //Read each channel once
     ADTIF = 0;
